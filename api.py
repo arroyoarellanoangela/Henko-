@@ -16,13 +16,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from rag.agents import EvaluatorAgent, GeneratorAgent, RetrieverAgent, RouterAgent, prepare_agent_context
 from rag.config import KNOWLEDGE_DIR, LLM_API_URL, LLM_MODEL, LLM_PROVIDER, OLLAMA_URL, WORKERS
+from rag.eval import new_query_id
 from rag.index_registry import get_index, reset_index
-from rag.llm import stream_chat
 from rag.loader import iter_files
 from rag.model_registry import get_embed_model, list_models
 from rag.monitoring import gpu_metrics
-from rag.orchestrator import execute_search, format_context, plan
 from rag.pipeline import read_and_chunk
 from rag.store import add_chunks, ensure_ollama
 
@@ -99,26 +99,45 @@ def status():
 @app.post("/api/query")
 def query(body: QueryRequest):
     """
-    Query the knowledge base. Returns SSE stream:
+    Query the knowledge base via multi-agent pipeline. Returns SSE stream:
       - data: {"type":"sources","sources":[...]}   (first)
       - data: {"type":"token","content":"..."}      (streaming tokens)
-      - data: {"type":"done"}                       (end)
+      - data: {"type":"done","agent_trace":[...]}   (end + agent trace)
     """
-    route = plan(body.query, category=body.category, top_k=body.top_k)
-    results = execute_search(body.query, route, category=body.category)
+    ctx, router, retriever, generator, evaluator = prepare_agent_context(
+        query=body.query,
+        category=body.category,
+        top_k=body.top_k,
+    )
 
-    if not results:
+    # Phase 1: Router + Retriever (with pre-flight retry)
+    router.execute(ctx)
+    retriever.execute(ctx)
+
+    # Pre-flight: if retrieval is bad, retry before streaming
+    if ctx.retrieval_quality in ("weak", "failed") and ctx.attempt < ctx.max_attempts:
+        evaluator.execute(ctx)
+        if ctx.should_retry:
+            ctx.attempt += 1
+            ctx.results = []
+            ctx.context_text = ""
+            ctx.should_retry = False
+            router.execute(ctx)
+            retriever.execute(ctx)
+
+    # No results at all
+    if not ctx.results:
         def no_results():
-            yield f"data: {json.dumps({'type': 'sources', 'sources': [], 'route': {'mode': route.mode, 'reason': route.reason}})}\n\n"
+            mode = ctx.route.mode if ctx.route else "answer"
+            reason = ctx.route.reason if ctx.route else ""
+            yield f"data: {json.dumps({'type': 'sources', 'sources': [], 'route': {'mode': mode, 'reason': reason}})}\n\n"
             yield f"data: {json.dumps({'type': 'token', 'content': 'No results found in the knowledge base.'})}\n\n"
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'agent_trace': ctx.agent_trace})}\n\n"
+            evaluator.execute(ctx)
 
         return StreamingResponse(no_results(), media_type="text/event-stream")
 
-    context = format_context(results)
-
-    # Build sources payload (sent first so UI can show them while streaming)
-    # Cross-encoder returns logits; sigmoid converts to 0-1 probability
+    # Build sources payload
     def _sigmoid(x: float) -> float:
         return 1.0 / (1.0 + math.exp(-x))
 
@@ -129,21 +148,32 @@ def query(body: QueryRequest):
             "score": round(_sigmoid(r["score"]), 3),
             "text": r["text"][:300],
         }
-        for r in results
+        for r in ctx.results
     ]
 
     def stream():
-        # Send sources + route metadata first
-        yield f"data: {json.dumps({'type': 'sources', 'sources': sources, 'route': {'mode': route.mode, 'reason': route.reason}})}\n\n"
+        mode = ctx.route.mode if ctx.route else "answer"
+        reason = ctx.route.reason if ctx.route else ""
+        yield f"data: {json.dumps({'type': 'sources', 'sources': sources, 'route': {'mode': mode, 'reason': reason}})}\n\n"
 
-        # Stream LLM response via provider abstraction
+        # Stream tokens via GeneratorAgent
         try:
-            for token in stream_chat(body.query, context):
+            for token in generator.stream(ctx):
                 yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
         except Exception as e:
+            ctx.full_response += f"[LLM error: {e}]"
             yield f"data: {json.dumps({'type': 'token', 'content': f'[LLM error: {e}]'})}\n\n"
 
-        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'agent_trace': ctx.agent_trace})}\n\n"
+
+        # Post-stream: Evaluator logs eval record
+        evaluator.execute(ctx)
+
+        if ctx.eval_flags:
+            logging.getLogger(__name__).info(
+                "[eval] query_id=%s flags=%s query=%s",
+                ctx.query_id, ctx.eval_flags, body.query[:60],
+            )
 
     return StreamingResponse(stream(), media_type="text/event-stream")
 
