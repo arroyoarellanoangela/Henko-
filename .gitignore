@@ -1,32 +1,42 @@
 # Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*$py.class
 *.egg-info/
 .venv/
+venv/
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
 build/
 dist/
 htmlcov/
 .coverage
+coverage.xml
 
 # Environment & secrets
 .env
+.env.local
+.env.*.local
 secrets/
 
-# Data (ChromaDB vectors + finetune data — regenerable)
-data/chroma/
-data/eval/
-data/finetune/
-data/github_knowledge/
+# Data (runtime — not source code)
+data/
+
+# Frontend
+frontend/
+
+# Docs (internal)
+docs/
+
+# Assets (binaries)
+assets/
+
+# Load testing
+loadtest/
 
 # Benchmark raw data (regenerable)
 benchmarks/*_raw.json
-
-# Frontend
-frontend/node_modules/
-frontend/dist/
 
 # IDE / OS
 .vscode/
@@ -36,5 +46,5 @@ frontend/dist/
 Thumbs.db
 .DS_Store
 
-# Branding assets (heavy binaries)
+# Branding assets
 Manifesto/
