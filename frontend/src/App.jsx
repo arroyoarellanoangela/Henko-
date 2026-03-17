@@ -135,7 +135,7 @@ function App() {
       {/* Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-header">
-          <a href="#" className="brand-logo">Kaizen<em>.</em></a>
+          <a href="#" className="brand-logo">Suyven<em>.</em></a>
         </div>
 
         {/* System Status */}

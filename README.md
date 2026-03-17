@@ -1,53 +1,94 @@
-# Kaizen v1 — GPU-Optimized RAG Engine
+<div align="center">
 
-Production-ready RAG engine built on two principles:
-1. **GPU-first**: Every bottleneck (embedding, reranking, batching) runs on CUDA with FP16
-2. **Domain factory**: One engine serves unlimited isolated knowledge domains, each with its own vector index and system prompt
+# ⚡ Suyven RAG Engine
+
+**The knowledge base that adapts to anything.**
+
+*By [Suyven](https://suyven.com) · Built for production, not demos.*
+
+[![Python](https://img.shields.io/badge/Python-3.12-blue?style=flat-square&logo=python)](https://python.org)
+[![CUDA](https://img.shields.io/badge/CUDA-12.8-green?style=flat-square&logo=nvidia)](https://developer.nvidia.com/cuda-toolkit)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.12-orange?style=flat-square&logo=pytorch)](https://pytorch.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-teal?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com)
+[![License](https://img.shields.io/badge/license-MIT-purple?style=flat-square)](LICENSE)
+
+</div>
+
+---
+
+## What is this?
+
+Most RAG engines are built to impress in demos. This one is built to run in production.
+
+**Suyven RAG Engine** is the core infrastructure powering every Suyven product. It's GPU-first, domain-agnostic, and designed so that anyone — a startup, an enterprise, a solo dev — can plug in their knowledge and get a system that actually works. One engine. Unlimited domains. Zero compromise.
+
+It's fast because it has to be. It's precise because anything less is useless. And it's modular because the future will require things we haven't thought of yet.
+
+> *"The base layer of every intelligent system we'll ever build."* — Suyven
+
+---
+
+## Why it exists
+
+Knowledge is scattered. Teams drown in documents, wikis, PDFs, codebases. LLMs hallucinate. Semantic search alone isn't enough.
+
+Suyven RAG Engine exists because **retrieval is the hardest part**, and most solutions skip the hard work. We didn't.
+
+- GPU-accelerated embeddings at 38x CPU speed
+- Hybrid search combining semantic understanding with keyword precision
+- Multi-domain isolation so your knowledge stays clean
+- Auto-evaluation that flags failures before your users do
+
+---
 
 ## Benchmarks
 
-| Metric | Value |
-|--------|-------|
-| NDCG@10 | 0.909 (209-query ground-truth suite) |
-| Embedding throughput | 2,960 chunks/s (38x CPU baseline) |
-| FP16 VRAM savings | -48% vs FP32 (671 MB vs 1,290 MB) |
-| FP16 retrieval fidelity | 99.3% Recall@10 vs FP32 |
-| Reranker latency | 8.8 ms/query (FP16 on GPU) |
-| Test suite | 209/209 passing |
+> Measured on NVIDIA RTX 5070 · CUDA 12.8 · PyTorch 2.12
 
-**Hardware target:** NVIDIA RTX 5070 · CUDA 12.8 · PyTorch 2.12
+| Metric | Result |
+|--------|--------|
+| NDCG@10 | **0.909** — 209-query ground-truth suite |
+| Embedding throughput | **2,960 chunks/s** — 38x CPU baseline |
+| FP16 VRAM savings | **−48%** vs FP32 (671 MB vs 1,290 MB) |
+| FP16 retrieval fidelity | **99.3% Recall@10** — near-zero quality loss |
+| Reranker latency | **8.8 ms/query** — FP16 on GPU |
+| Test coverage | **209/209 passing** |
+
+---
 
 ## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
+|-------|------------|
 | API | FastAPI 0.115 + SSE streaming + Uvicorn |
-| Embeddings | sentence-transformers 5.0+ / BAAI/bge-m3 (568M params, 1024-dim, multilingual, FP16) |
-| Reranker | cross-encoder/ms-marco-MiniLM-L-6-v2 (FP16 on GPU) |
-| Vector Store | ChromaDB 1.5+ (persistent, cosine HNSW, multi-collection) |
-| Hybrid Search | rank-bm25 (BM25Okapi) + Reciprocal Rank Fusion (RRF) |
-| LLM | Any OpenAI-compatible endpoint (default: Groq llama-3.3-70b-versatile) or Ollama local |
+| Embeddings | BAAI/bge-m3 · 568M params · 1024-dim · multilingual · FP16 |
+| Reranker | cross-encoder/ms-marco-MiniLM-L-6-v2 · FP16 on GPU |
+| Vector Store | ChromaDB 1.5+ · cosine HNSW · multi-collection |
+| Hybrid Search | BM25Okapi + Reciprocal Rank Fusion (RRF) |
+| LLM | Any OpenAI-compatible endpoint · default: Groq llama-3.3-70b |
 | GPU Monitoring | pynvml 13.0+ |
-| Infrastructure | Docker (CPU + GPU variants) |
-| Python | 3.12 · PyTorch 2.12+ · CUDA 12.8 |
+| Infrastructure | Docker · CPU + GPU variants |
+| Runtime | Python 3.12 · PyTorch 2.12+ · CUDA 12.8 |
+
+---
 
 ## Architecture
 
 ```
-kaizen-v1/
+suyven-rag/
 ├── api.py                    # FastAPI + SSE streaming
 ├── app.py                    # Streamlit UI + GPU dashboard
 ├── ingest.py                 # CLI ingestion (3-phase pipeline)
 ├── query.py                  # CLI query tool
 │
-├── rag/                      # Core RAG pipeline (21 modules)
+├── rag/                      # Core pipeline — 21 modules
 │   ├── config.py             # Centralized config (env vars + Docker secrets)
-│   ├── llm.py                # LLM abstraction (Ollama local + OpenAI-compatible cloud)
-│   ├── agents.py             # 4-agent pipeline (Router, Retriever, Generator, Evaluator)
+│   ├── llm.py                # LLM abstraction (Ollama + OpenAI-compatible)
+│   ├── agents.py             # 4-agent pipeline (Router → Retriever → Generator → Evaluator)
 │   ├── orchestrator.py       # RoutePlan + hybrid search (BM25 + dense) + RRF fusion
-│   ├── model_registry.py     # Embed/reranker model singleton registry
+│   ├── model_registry.py     # Embed/reranker singleton registry
 │   ├── index_registry.py     # ChromaDB collection registry (static + dynamic)
-│   ├── domain_registry.py    # Domain CRUD + isolation (multi-domain)
+│   ├── domain_registry.py    # Domain CRUD + isolation
 │   ├── store.py              # Embedding + ChromaDB storage (FP16 GPU)
 │   ├── pipeline.py           # Shared read+chunk pipeline
 │   ├── chunker.py            # Character + paragraph + sentence chunking
@@ -68,139 +109,95 @@ kaizen-v1/
 ├── loadtest/                 # Locust load testing
 ├── scripts/                  # Deployment scripts
 │
-├── data/
-│   ├── chroma/               # ChromaDB persistent storage (HNSW)
-│   ├── domains/              # Domain configs + isolated indexes
-│   ├── eval/                 # Query evaluation logs (JSONL)
-│   └── knowledge/            # Source documents for ingestion
-│
-├── docker-compose.yml        # CPU deployment
-├── docker-compose.gpu.yml    # GPU (NVIDIA) deployment
-├── Dockerfile / Dockerfile.gpu
-├── requirements.txt
-└── .env.example
+└── data/
+    ├── chroma/               # ChromaDB persistent storage (HNSW)
+    ├── domains/              # Domain configs + isolated indexes
+    ├── eval/                 # Query evaluation logs (JSONL)
+    └── knowledge/            # Source documents for ingestion
 ```
 
-## Core Modules
+---
 
-### rag/llm.py — LLM Abstraction
-Supports **Ollama** (local) and **any OpenAI-compatible API** (Groq, DeepSeek, Together AI, etc.).
+## How it works
 
-- `quick_complete(prompt, model, provider, api_url, api_key, max_tokens, timeout)` — non-streaming completion for query expansion
-- `stream_chat(query, context, system_prompt, provider, api_url, api_key)` — token-by-token streaming for RAG responses
-- Detects provider at runtime: `POST /api/chat` for Ollama, `POST /chat/completions` for OpenAI-compatible
+### Ingestion — 3 phases
 
-### rag/store.py — GPU Embedding & ChromaDB Storage
-- `get_embed_model()` — lazy-loads BAAI/bge-m3, applies FP16 + CUDA (+109% throughput, -48% VRAM)
-- `embed_batch(texts)` — batch embedding (batch_size=256, optimal from sweep)
-- `add_chunks(collection, path, chunks, knowledge_dir)` — batch insert with deduplication by MD5
-- Custom `STEmbedFn` bridges sentence-transformers to ChromaDB
+```
+Documents → Parallel chunk (8 workers) → GPU embed (FP16) → ChromaDB index
+```
 
-### rag/orchestrator.py — Query Router & Hybrid Search
-**RoutePlan** decides index, models, and retrieval mode (answer/summary/code).
+Files are discovered automatically. Chunks are deduplicated by MD5. The embedding model loads once and stays warm.
 
-**Search pipeline (5 stages):**
-1. Dense (bi-encoder) search — BAAI/bge-m3 semantic similarity
-2. BM25 keyword search — catches exact names, acronyms
-3. Hybrid merge via RRF — industry-standard rank fusion
-4. Cross-encoder reranking — ms-marco-MiniLM (+7.0% Precision@5)
-5. Source diversity cap — max 3 chunks per source
+### Query — 5 stages
 
-**Advanced features:**
-- `expand_query()` — LLM-driven query reformulation (~200ms on Groq) + late fusion via RRF
-- `_fetch_adjacent_chunks()` — A-RAG-inspired: fetch neighboring chunks for fuller context
-- Overfetch factor 6 (tuned; 4 too conservative, 8+ hurt NDCG)
+```
+Query → Route → Dense retrieval → BM25 → RRF fusion → Rerank → Answer
+```
 
-### rag/agents.py — 4-Agent Pipeline
-Sequential execution with retry escalation:
+1. **Planning** — deterministic routing, no LLM calls, zero latency overhead
+2. **Dense retrieval** — bge-m3 semantic search, 6x overfetch
+3. **BM25** — keyword fallback, catches names, acronyms, exact matches
+4. **Hybrid merge** — RRF fusion + source diversity cap (max 3 chunks/source)
+5. **Cross-encoder reranking** — ms-marco-MiniLM, +7.0% Precision@5
 
-1. **RouterAgent** — classifies complexity (simple/moderate/complex), picks strategy (dense/hybrid/category-filtered)
-2. **RetrieverAgent / ReACTRetrieverAgent** — multi-tool reasoning (heuristic, no LLM cost):
-   - Tool 1: semantic_search (dense)
-   - Tool 2: entity_search (if quality weak)
-   - Tool 3: sub_query (decompose complex queries)
-   - Tool 4: chunk_read (expand with adjacent chunks)
-3. **GeneratorAgent** — streams tokens, adapts prompt to retrieval quality (good/weak/failed)
-4. **EvaluatorAgent** — flags issues, decides retry with escalated strategy
+Optional: LLM query expansion with late RRF fusion (~200ms on Groq).
 
-**AgentContext** carries state: query, route, results, context_text, reranker_scores, response, flags, timing, trace.
+### The 4-agent pipeline
 
-### rag/pipeline.py + rag/chunker.py + rag/loader.py — Ingestion
-- `read_and_chunk(path)` — atomic for ThreadPoolExecutor
-- Character-based chunking (600 chars, 80 overlap) with paragraph + sentence boundaries
-- MD5 hashing for deduplication
-- Supports MD, TXT, PDF (PyMuPDF), PY, JSONL
+| Agent | Role |
+|-------|------|
+| **Router** | Classifies complexity, picks strategy (dense / hybrid / category-filtered) |
+| **Retriever** | Multi-tool reasoning — semantic search, entity search, sub-query decomposition, adjacent chunk expansion |
+| **Generator** | Streams tokens, adapts prompt to retrieval quality in real time |
+| **Evaluator** | Flags issues, escalates strategy on retry (dense → hybrid → no-category dense) |
 
-### rag/model_registry.py — Model Singleton Registry
-- Caches loaded models globally (embed + reranker)
-- `get_embed_model(name)` / `get_reranker(name)` — lazy-load with FP16 + CUDA
-- `register_embed_model(name, model_id, precision)` — supports domain fine-tuning
+---
 
-### rag/index_registry.py — ChromaDB Collection Registry
-- Static + dynamic indexes with lazy loading
-- `get_index(name)` / `register_index()` / `reset_index()`
-- `route_to_index(query, hint)` — picks index by domain hint
-- Custom `RegistryEmbedFn` enables dynamic model swaps
+## Key design decisions
 
-### rag/domain_registry.py — Multi-Domain Isolation
-- `create_domain(name, description, system_prompt, categories)` — isolated ChromaDB collection + config
-- `update_domain()` / `delete_domain()` / `get_domain(slug)` / `list_domains()`
-- Config persisted to `data/domains/{slug}/config.json`
-- Auto-generated system prompts, domain-specific eval logs
+| Decision | Why |
+|----------|-----|
+| FP16 embeddings | +109% throughput, −48% VRAM, 99.3% recall parity — no downside |
+| Overfetch ×6 | Tested 4, 6, 8, 10 — 6 is optimal. 8+ hurts NDCG |
+| Max 3 chunks/source | Prevents one document from dominating context. 2 was too aggressive |
+| ms-marco reranker | Outperforms bge-reranker-v2 on this corpus |
+| RRF over score averaging | Rank-based, robust against score scale differences across retrievers |
+| Groq for LLM | 70B quality at speed. GPU VRAM stays reserved for embed + reranker |
+| Domain isolation | Specialized indexes prevent cross-domain contamination |
+| ReACT retriever | Heuristic reasoning — catches entity queries without LLM cost |
+| No fine-tuning yet | Evidence-gated. Only when NDCG plateaus on real production queries |
 
-### rag/eval.py — Auto-Evaluation
-**QueryEvalRecord** captures: query, top_k, route_mode, reranker_scores, bi_encoder_scores, latencies.
+---
 
-**Thresholds:**
-- `RERANKER_FLOOR = -2.0` (retrieval failure)
-- `RERANKER_WEAK_MEAN = -0.5` (weak retrieval)
-- `LATENCY_SPIKE_S = 10.0`
-- `CONTAMINATION_CATS = 3` (source diversity)
+## Quick start
 
-**Flags:** empty_retrieval, retrieval_failure, weak_retrieval, corpus_gap, category_contamination, latency_spike.
+```bash
+# Clone
+git clone https://github.com/suyven-core/rag-engine
+cd rag-engine
 
-### rag/security.py — Auth & Rate Limiting
-- Optional API key validation (AUTH_ENABLED)
-- CORS configuration (CORS_ORIGINS)
-- Rate limiting (RATE_LIMIT_RPM, RATE_LIMIT_BURST)
-- Input sanitization (query length, top_k bounds, path traversal prevention)
+# Configure
+cp .env.example .env
+# Edit .env with your LLM API key
 
-### rag/monitoring.py — GPU Telemetry
-- `gpu_metrics()` — GPU name, temp, utilization, VRAM used/total via pynvml
-- Used by `/api/health` and Streamlit dashboard
+# Run (GPU)
+docker compose -f docker-compose.gpu.yml up
 
-### rag/gap_tracker.py — Knowledge Gap Analysis
-- `analyze_gaps(entries, top_n)` — mines query log for recurring failures
-- Exposed via `/api/gaps` endpoint
+# Ingest your knowledge
+python ingest.py --domain my-domain --path ./data/knowledge/
 
-## RAG Pipeline
+# Query
+python query.py --domain my-domain "What is...?"
+```
 
-### Ingestion (3 phases)
-1. **Parallel read + chunk** — ThreadPoolExecutor (8 workers), `iter_files()` discovers all supported files
-2. **Pre-load embedding model** — BAAI/bge-m3 to GPU with FP16
-3. **Batch embed + index** — batch_size=256, ChromaDB insert (500 chunks/call), dedup by MD5
-
-### Query (5 stages)
-1. **Planning** — deterministic routing (keyword-based mode detection, no LLM calls)
-2. **Dense retrieval** — bi-encoder via bge-m3 (overfetch 6x)
-3. **BM25 retrieval** — keyword matching
-4. **Hybrid merge** — RRF fusion + source diversity cap (max 3/source)
-5. **Cross-encoder reranking** — ms-marco-MiniLM, take top_k
-
-Optional: late fusion with LLM query expansion (~200ms on Groq).
-
-### Generation & Evaluation
-- Context formatting with source references
-- LLM streaming with quality-adapted system prompts
-- Auto-flagging + JSONL logging (fail-silent, zero latency impact)
-- Retry with escalated strategy (dense → hybrid → no-category dense)
+---
 
 ## Configuration
 
 ```env
-# Embedding
-EMBED_MODEL=BAAI/bge-m3          # 568M params, 1024-dim, multilingual
-EMBED_BATCH=256                  # Optimal from sweep
+# Embeddings
+EMBED_MODEL=BAAI/bge-m3
+EMBED_BATCH=256
 
 # Chunking
 CHUNK_SIZE=600
@@ -209,23 +206,20 @@ CHUNK_OVERLAP=80
 # Retrieval
 TOP_K=5
 RERANKER_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2
-OVERFETCH_FACTOR=6               # Tested 4,6,8,10 — 6 optimal
+OVERFETCH_FACTOR=6
 RERANKER_BATCH_SIZE=32
 
-# LLM (OpenAI-compatible)
-LLM_PROVIDER=openai              # "openai" or "ollama"
+# LLM
+LLM_PROVIDER=openai
 LLM_MODEL=llama-3.3-70b-versatile
 LLM_API_URL=https://api.groq.com/openai/v1
-LLM_API_KEY=<key>
+LLM_API_KEY=<your-key>
 
 # Fallback LLM
 FALLBACK_PROVIDER=openai
 FALLBACK_MODEL=gemini-2.5-flash
 FALLBACK_API_URL=https://generativelanguage.googleapis.com/v1beta/openai
-FALLBACK_API_KEY=<key>
-
-# Ollama (local)
-OLLAMA_URL=http://localhost:11434
+FALLBACK_API_KEY=<your-key>
 
 # Security
 AUTH_ENABLED=false
@@ -236,30 +230,16 @@ MAX_QUERY_LENGTH=2000
 MAX_TOP_K=20
 CORS_ORIGINS=http://localhost:5173
 
-# Concurrency
-WORKERS=8
-
 # Observability
-LOG_FORMAT=text                  # "json" for prod
+LOG_FORMAT=text   # use "json" in production
+WORKERS=8
 ```
 
-Docker secrets (`/run/secrets/<NAME>`) override env vars.
+Docker secrets at `/run/secrets/<NAME>` override all env vars.
 
-## Design Decisions
+---
 
-| Decision | Rationale |
-|----------|-----------|
-| FP16 embeddings | +109% throughput, -48% VRAM, 99.3% Recall@10 parity |
-| Overfetch x6 | Tested 4, 6, 8, 10 — 6 optimal; 8+ hurt NDCG |
-| Source cap: 3 chunks | Prevents one doc dominating; 2 too aggressive |
-| ms-marco reranker | Better NDCG on this corpus than bge-reranker-v2 |
-| RRF over averaging | Rank-based, robust to score scale differences |
-| Groq for LLM | 70B quality; GPU VRAM reserved for embed+reranker |
-| Domain isolation | Specialized indexes prevent cross-domain contamination |
-| ReACT retriever | Heuristic reasoning without LLM cost; catches entity queries |
-| No fine-tuning yet | Evidence-gated roadmap — only when plateau on real queries |
-
-## Key API
+## API reference
 
 ```python
 # Orchestrator
@@ -267,7 +247,7 @@ plan(query, category, top_k) → RoutePlan
 execute_search(query, route, category, use_expansion) → [results]
 format_context(results) → str
 
-# Store & Embedding
+# Embeddings & storage
 get_embed_model() → SentenceTransformer
 embed_batch(texts) → [[float], ...]
 add_chunks(col, path, chunks, knowledge_dir) → (added, skipped)
@@ -278,11 +258,11 @@ get_embed_model(name) → SentenceTransformer
 get_reranker(name) → CrossEncoder
 
 # Domains
-create_domain(name, description, ...) → DomainConfig
+create_domain(name, description, system_prompt, categories) → DomainConfig
 get_domain(slug) → DomainConfig
 list_domains() → [DomainConfig]
 
-# Eval
+# Evaluation
 compute_flags(record) → [flags]
 log_eval(record) → None
 analyze_gaps(entries, top_n) → GapReport
@@ -291,3 +271,25 @@ analyze_gaps(entries, top_n) → GapReport
 quick_complete(prompt, ...) → str
 stream_chat(query, context, system_prompt, ...) → Generator[str]
 ```
+
+---
+
+## Roadmap
+
+- [ ] Multi-modal ingestion (images, tables, charts)
+- [ ] Embedding fine-tuning when production data justifies it
+- [ ] GraphRAG layer for entity-relationship queries
+- [ ] REST API authentication + multi-tenant key management
+- [ ] Hosted version — plug in your docs, get an endpoint
+
+---
+
+<div align="center">
+
+**Built by [Suyven](https://suyven.com)**
+
+*The base layer. Everything else is built on top of this.*
+
+[hello@suyven.com](mailto:hello@suyven.com)
+
+</div>

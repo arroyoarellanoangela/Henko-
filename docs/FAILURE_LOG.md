@@ -1,6 +1,6 @@
 # Failure Log — Real Usage Observations
 
-> Fill this as you use Kaizen with real queries.
+> Fill this as you use Suyven with real queries.
 > Each entry helps decide if V2.2 is needed and what the real fix should be.
 
 ## How to log

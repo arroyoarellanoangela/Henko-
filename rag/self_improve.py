@@ -75,7 +75,7 @@ class RepoAnalysis:
 
 @dataclass
 class Improvement:
-    """A proposed improvement to Kaizen."""
+    """A proposed improvement to Suyven."""
     id: str
     title: str
     description: str
@@ -106,7 +106,7 @@ class GitHubScout:
     def __init__(self, token: str | None = None):
         self.session = requests.Session()
         self.session.headers["Accept"] = "application/vnd.github.v3+json"
-        self.session.headers["User-Agent"] = "Kaizen-SelfImprove/1.0"
+        self.session.headers["User-Agent"] = "Suyven-SelfImprove/1.0"
         if token:
             self.session.headers["Authorization"] = f"token {token}"
 

@@ -1,6 +1,6 @@
 # Load Testing
 
-Stress test the Kaizen RAG API with [Locust](https://locust.io/).
+Stress test the Suyven RAG API with [Locust](https://locust.io/).
 
 ## Setup
 
@@ -31,7 +31,7 @@ API_KEY=your-key locust -f loadtest/locustfile.py --host http://localhost:8000
 
 ## User Types
 
-- **KaizenUser**: Realistic mix — 60% queries, 20% health, 10% status/gaps/metrics
+- **SuyvenUser**: Realistic mix — 60% queries, 20% health, 10% status/gaps/metrics
 - **HighThroughputUser**: Burst mode — rapid health checks to test rate limiting
 
 ## Output

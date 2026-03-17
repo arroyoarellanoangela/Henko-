@@ -1,4 +1,4 @@
-"""bench.py — Quantitative benchmark harness for Kaizen RAG.
+"""bench.py — Quantitative benchmark harness for Suyven RAG.
 
 Usage:
     python bench.py                                        # retrieval-only
@@ -311,7 +311,7 @@ def save_report(report: BenchmarkReport) -> Path:
 
 def print_report(report: BenchmarkReport) -> None:
     print(f"\n{'=' * 62}")
-    print(f"  Kaizen Benchmark Report: {report.config_label}")
+    print(f"  Suyven Benchmark Report: {report.config_label}")
     print(f"{'=' * 62}")
     print(f"  Queries:    {report.num_queries}")
     print(f"  Timestamp:  {report.timestamp}")
@@ -487,7 +487,7 @@ def inspect_query(query: str, top_k: int = 10) -> None:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Kaizen RAG benchmark")
+    parser = argparse.ArgumentParser(description="Suyven RAG benchmark")
     parser.add_argument("--label", default="baseline", help="Config label for this run")
     parser.add_argument("--top-k", type=int, default=None, help="Override top_k")
     parser.add_argument("--gt", type=str, default=None, help="Path to ground truth JSONL")
@@ -513,7 +513,7 @@ def main():
     # Full benchmark
     gt_path = Path(args.gt) if args.gt else GT_PATH
     print(f"\n{'=' * 62}")
-    print(f"  Kaizen Benchmark: {args.label}")
+    print(f"  Suyven Benchmark: {args.label}")
     print(f"{'=' * 62}")
 
     print("\n[1/4] Loading ground truth...")

@@ -61,7 +61,7 @@ def report(rows: list[dict], flags_only: bool = False) -> None:
     total = len(rows)
     dates = [r["timestamp"][:10] for r in rows]
     print(f"\n{'='*60}")
-    print(f"  Kaizen Auto-Eval Report")
+    print(f"  Suyven Auto-Eval Report")
     print(f"{'='*60}")
     print(f"  Queries:    {total}")
     print(f"  Date range: {min(dates)} .. {max(dates)}")
@@ -162,7 +162,7 @@ def report(rows: list[dict], flags_only: bool = False) -> None:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Kaizen auto-eval report")
+    parser = argparse.ArgumentParser(description="Suyven auto-eval report")
     parser.add_argument("--last", type=int, default=None, help="Only show last N queries")
     parser.add_argument("--flags-only", action="store_true", help="Only show flagged queries")
     args = parser.parse_args()

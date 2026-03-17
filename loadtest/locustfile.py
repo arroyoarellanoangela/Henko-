@@ -1,4 +1,4 @@
-"""Locust load test — stress test the Kaizen RAG API.
+"""Locust load test — stress test the Suyven RAG API.
 
 Usage:
     pip install locust
@@ -40,7 +40,7 @@ QUERIES = [
 CATEGORIES = [None, "ml", "infra", "tools", "cloud"]
 
 
-class KaizenUser(HttpUser):
+class SuyvenUser(HttpUser):
     """Simulates a typical API consumer."""
 
     wait_time = between(0.5, 2.0)

@@ -1,4 +1,4 @@
-"""Kaizen v1 — FastAPI backend for the React frontend."""
+"""Suyven v1 — FastAPI backend for the React frontend."""
 
 import json
 import logging
@@ -63,7 +63,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Kaizen RAG API", lifespan=lifespan)
+app = FastAPI(title="Suyven RAG API", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS or ["*"],
@@ -246,7 +246,7 @@ def query(body: QueryRequest, api_key: str = Depends(require_api_key)):
     body.query = validate_query(body.query)
     body.top_k = validate_top_k(body.top_k)
 
-    metrics.inc("kaizen_queries_total")
+    metrics.inc("suyven_queries_total")
 
     # If domain specified, delegate to domain-specific endpoint
     if body.domain:
@@ -267,7 +267,7 @@ def query(body: QueryRequest, api_key: str = Depends(require_api_key)):
     if ctx.retrieval_quality in ("weak", "failed") and ctx.attempt < ctx.max_attempts:
         evaluator.execute(ctx)
         if ctx.should_retry:
-            metrics.inc("kaizen_retries_total")
+            metrics.inc("suyven_retries_total")
             ctx.attempt += 1
             ctx.results = []
             ctx.context_text = ""
@@ -334,7 +334,7 @@ def query(body: QueryRequest, api_key: str = Depends(require_api_key)):
 
         if ctx.eval_flags:
             for flag in ctx.eval_flags:
-                metrics.inc("kaizen_eval_flags_total", labels={"flag": flag})
+                metrics.inc("suyven_eval_flags_total", labels={"flag": flag})
             logging.getLogger(__name__).info(
                 "[eval] query_id=%s flags=%s query=%s",
                 ctx.query_id, ctx.eval_flags, body.query[:60],

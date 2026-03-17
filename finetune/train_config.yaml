@@ -1,5 +1,5 @@
 # =============================================================================
-# Kaizen Fine-Tuning Config — Axolotl-style YAML-driven training
+# Suyven Fine-Tuning Config — Axolotl-style YAML-driven training
 # =============================================================================
 # Every experiment is reproducible from this single file.
 # Override any field via CLI: --override model.lora_rank=16

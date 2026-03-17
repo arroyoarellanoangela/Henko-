@@ -211,7 +211,7 @@ def create_request_middleware(app_metrics: Metrics | None = None):
             m.observe("http_request_duration_ms", duration_ms, labels={"method": method, "path": path})
 
             # Structured log
-            logger = logging.getLogger("kaizen.http")
+            logger = logging.getLogger("suyven.http")
             logger.info(
                 "%s %s -> %d (%.0fms)",
                 method, path, status, duration_ms,

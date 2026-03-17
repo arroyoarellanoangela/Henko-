@@ -1,6 +1,6 @@
 services:
   # ---------- API + Frontend (CPU) ----------
-  kaizen:
+  suyven:
     build:
       context: .
       dockerfile: Dockerfile

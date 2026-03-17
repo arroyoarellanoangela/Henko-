@@ -1,4 +1,4 @@
-# Architecture — Kaizen RAG Pipeline
+# Architecture — Suyven RAG Pipeline
 
 ## System Overview
 
@@ -134,7 +134,7 @@
 ## File Structure
 
 ```
-kaizen-v1/
+suyven-v1/
 ├── api.py                      # FastAPI backend (SSE streaming, orchestrator)
 ├── app.py                      # Streamlit UI (ingest + query + GPU dashboard)
 ├── ingest.py                   # CLI ingestion
@@ -158,7 +158,7 @@ kaizen-v1/
 │   ├── test_model_registry.py  # Registry contents and interface
 │   └── test_index_registry.py  # Routing and index info
 │
-├── kaizen front/               # React frontend (Vite)
+├── suyven front/               # React frontend (Vite)
 │   └── src/
 │       ├── App.jsx             # Chat UI + sidebar + route badges
 │       └── index.css           # Styling

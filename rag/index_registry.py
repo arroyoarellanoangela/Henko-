@@ -1,6 +1,6 @@
 """Index registry — central access point for ChromaDB collections.
 
-Supports both the static "default" index (main Kaizen knowledge base)
+Supports both the static "default" index (main Suyven knowledge base)
 and dynamic domain-specific indexes created via domain_registry.
 """
 

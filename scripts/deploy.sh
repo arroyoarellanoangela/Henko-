@@ -1,5 +1,5 @@
 #!/bin/bash
-# Deploy Kaizen — builds and starts Docker containers.
+# Deploy Suyven — builds and starts Docker containers.
 #
 # Usage:
 #   ./scripts/deploy.sh              # CPU mode
@@ -36,15 +36,15 @@ if [ ! -f .env ]; then
 fi
 
 if [ "$GPU" = true ]; then
-    echo "Starting Kaizen (GPU mode)..."
+    echo "Starting Suyven (GPU mode)..."
     docker compose -f docker-compose.gpu.yml up -d $REBUILD
 else
-    echo "Starting Kaizen (CPU mode)..."
+    echo "Starting Suyven (CPU mode)..."
     docker compose up -d $REBUILD
 fi
 
 echo ""
-echo "Kaizen is starting..."
+echo "Suyven is starting..."
 echo "  API:      http://localhost:8000/api/health"
 echo "  Frontend: http://localhost:8000"
 echo ""

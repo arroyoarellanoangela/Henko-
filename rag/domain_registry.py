@@ -6,10 +6,10 @@ Each domain gets:
   - Metadata (name, description, created_at, chunk_count)
   - Independent eval logs
 
-Kaizen is the base engine. Domains are specializations:
-  kaizen.create_domain("oncologia") -> isolated vectorDB + config
-  kaizen.ingest("oncologia", files)  -> chunks embedded into domain's collection
-  kaizen.query("oncologia", "...")   -> retrieval scoped to domain
+Suyven is the base engine. Domains are specializations:
+  suyven.create_domain("oncologia") -> isolated vectorDB + config
+  suyven.ingest("oncologia", files)  -> chunks embedded into domain's collection
+  suyven.query("oncologia", "...")   -> retrieval scoped to domain
 
 Persistence: domain configs stored in data/domains/<slug>/config.json
 """

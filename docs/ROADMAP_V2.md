@@ -1,4 +1,4 @@
-# Kaizen V2 Roadmap
+# Suyven V2 Roadmap
 
 > **V2 is gated by evidence, not by ambition.**
 > Primero limpiar la base. Luego abstraer la arquitectura. Añadir complejidad solo cuando el corpus o las métricas lo exijan.

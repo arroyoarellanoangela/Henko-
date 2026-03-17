@@ -1,4 +1,4 @@
-"""Kaizen v1 — RAG web interface (Streamlit)."""
+"""Suyven v1 — RAG web interface (Streamlit)."""
 
 import streamlit as st
 from concurrent.futures import ThreadPoolExecutor
@@ -18,7 +18,7 @@ from rag.store import add_chunks, ensure_ollama
 # ---------------------------------------------------------------------------
 
 st.set_page_config(
-    page_title="Kaizen v1",
+    page_title="Suyven v1",
     page_icon="⚡",
     layout="wide",
 )
@@ -49,7 +49,7 @@ except Exception:
 # ---------------------------------------------------------------------------
 
 with st.sidebar:
-    st.title("⚡ Kaizen v1")
+    st.title("⚡ Suyven v1")
     st.caption("Personal knowledge RAG")
     st.divider()
 
