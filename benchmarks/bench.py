@@ -68,15 +68,18 @@ def run_retrieval(
     entries: list[GroundTruthEntry],
     top_k_override: int | None = None,
     use_agents: bool = False,
+    use_react: bool = False,
+    use_expansion: bool = False,
 ) -> list[RetrievalResult]:
-    if use_agents:
-        return _run_retrieval_agents(entries, top_k_override)
-    return _run_retrieval_direct(entries, top_k_override)
+    if use_agents or use_react:
+        return _run_retrieval_agents(entries, top_k_override, use_react=use_react)
+    return _run_retrieval_direct(entries, top_k_override, use_expansion=use_expansion)
 
 
 def _run_retrieval_direct(
     entries: list[GroundTruthEntry],
     top_k_override: int | None = None,
+    use_expansion: bool = False,
 ) -> list[RetrievalResult]:
     from rag.orchestrator import execute_search, plan
 
@@ -85,7 +88,7 @@ def _run_retrieval_direct(
         tk = top_k_override or gt.top_k
         t0 = time.time()
         route = plan(gt.query, category=gt.category, top_k=tk)
-        candidates = execute_search(gt.query, route, category=gt.category)
+        candidates = execute_search(gt.query, route, category=gt.category, use_expansion=use_expansion)
         latency = time.time() - t0
 
         results.append(RetrievalResult(
@@ -106,13 +109,17 @@ def _run_retrieval_direct(
 def _run_retrieval_agents(
     entries: list[GroundTruthEntry],
     top_k_override: int | None = None,
+    use_react: bool = False,
 ) -> list[RetrievalResult]:
     from rag.agents import run_agent_pipeline
 
     results = []
     for i, gt in enumerate(entries, 1):
         tk = top_k_override or gt.top_k
-        ctx = run_agent_pipeline(gt.query, category=gt.category, top_k=tk, skip_generation=True)
+        ctx = run_agent_pipeline(
+            gt.query, category=gt.category, top_k=tk,
+            skip_generation=True, use_react=use_react,
+        )
 
         results.append(RetrievalResult(
             query_id=gt.query_id,
@@ -178,7 +185,7 @@ def compute_all_metrics(
     entries: list[GroundTruthEntry],
     retrieval: list[RetrievalResult],
     generation: list[GenerationResult] | None = None,
-    embed_fn: callable | None = None,
+    embed_fn=None,
 ) -> list[QueryMetrics]:
     metrics = []
     gen_map = {}
@@ -235,11 +242,12 @@ def build_report(
 ) -> BenchmarkReport:
     n = len(metrics)
 
-    # Aggregate IR
-    mean_ndcg = _mean([m.ndcg_at_k for m in metrics]) if metrics else 0.0
-    mean_mrr = _mean([m.mrr_at_k for m in metrics]) if metrics else 0.0
-    mean_recall = _mean([m.recall_at_k for m in metrics]) if metrics else 0.0
-    mean_precision = _mean([m.precision_at_k for m in metrics]) if metrics else 0.0
+    # Aggregate IR (exclude out_of_corpus queries — they have no relevant sources)
+    ir_metrics = [m for m in metrics if m.difficulty != "out_of_corpus"]
+    mean_ndcg = _mean([m.ndcg_at_k for m in ir_metrics]) if ir_metrics else 0.0
+    mean_mrr = _mean([m.mrr_at_k for m in ir_metrics]) if ir_metrics else 0.0
+    mean_recall = _mean([m.recall_at_k for m in ir_metrics]) if ir_metrics else 0.0
+    mean_precision = _mean([m.precision_at_k for m in ir_metrics]) if ir_metrics else 0.0
 
     # Generation
     faith_vals = [m.faithfulness_score for m in metrics if m.faithfulness_score is not None]
@@ -252,7 +260,7 @@ def build_report(
 
     # By difficulty
     by_diff: dict[str, dict[str, float]] = {}
-    for diff in ("easy", "medium", "hard"):
+    for diff in ("easy", "medium", "hard", "out_of_corpus"):
         subset = [m for m in metrics if m.difficulty == diff]
         if subset:
             by_diff[diff] = {
@@ -348,12 +356,12 @@ def print_report(report: BenchmarkReport) -> None:
     # By difficulty
     if report.metrics_by_difficulty:
         print("  By difficulty:")
-        print(f"    {'Diff':<8s} {'N':>3s} {'NDCG':>7s} {'MRR':>7s} {'Recall':>7s} {'Prec':>7s} {'Route':>7s}")
-        print(f"    {'-'*8} {'-'*3} {'-'*7} {'-'*7} {'-'*7} {'-'*7} {'-'*7}")
-        for diff in ("easy", "medium", "hard"):
+        print(f"    {'Diff':<12s} {'N':>3s} {'NDCG':>7s} {'MRR':>7s} {'Recall':>7s} {'Prec':>7s} {'Route':>7s}")
+        print(f"    {'-'*12} {'-'*3} {'-'*7} {'-'*7} {'-'*7} {'-'*7} {'-'*7}")
+        for diff in ("easy", "medium", "hard", "out_of_corpus"):
             d = report.metrics_by_difficulty.get(diff)
             if d:
-                print(f"    {diff:<8s} {int(d['count']):>3d} {d['mean_ndcg']:>7.4f} {d['mean_mrr']:>7.4f} "
+                print(f"    {diff:<12s} {int(d['count']):>3d} {d['mean_ndcg']:>7.4f} {d['mean_mrr']:>7.4f} "
                       f"{d['mean_recall']:>7.4f} {d['mean_precision']:>7.4f} {d['route_accuracy']:>6.0%}")
         print()
 
@@ -485,6 +493,8 @@ def main():
     parser.add_argument("--gt", type=str, default=None, help="Path to ground truth JSONL")
     parser.add_argument("--with-generation", action="store_true", help="Also run LLM generation")
     parser.add_argument("--agents", action="store_true", help="Use multi-agent pipeline instead of direct orchestrator")
+    parser.add_argument("--react", action="store_true", help="Use ReACT multi-tool retriever (implies --agents)")
+    parser.add_argument("--expand", action="store_true", help="Use LLM query expansion for broader recall")
     parser.add_argument("--compare", nargs=2, metavar="FILE", help="Compare two report JSON files")
     parser.add_argument("--inspect-query", type=str, default=None, help="Inspect a single query")
 
@@ -509,9 +519,16 @@ def main():
     print("\n[1/4] Loading ground truth...")
     entries = load_ground_truth(gt_path)
 
-    mode_label = "agents" if args.agents else "direct"
+    use_agents = args.agents or args.react
+    mode_label = "react" if args.react else ("agents" if args.agents else "direct")
+    if args.expand and not use_agents:
+        mode_label += "+expand"
     print(f"\n[2/4] Running retrieval ({mode_label})...")
-    retrieval = run_retrieval(entries, top_k_override=args.top_k, use_agents=args.agents)
+    retrieval = run_retrieval(
+        entries, top_k_override=args.top_k,
+        use_agents=use_agents, use_react=args.react,
+        use_expansion=args.expand and not use_agents,
+    )
 
     generation = None
     embed_fn = None

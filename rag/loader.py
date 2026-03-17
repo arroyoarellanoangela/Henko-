@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Iterator
 
-SUPPORTED_EXTENSIONS = {".md", ".txt", ".pdf"}
+SUPPORTED_EXTENSIONS = {".md", ".txt", ".pdf", ".py", ".jsonl"}
 
 # Folders to skip
 SKIP_DIRS = {".git", ".claude", "__pycache__", ".venv", "node_modules"}
@@ -25,7 +25,7 @@ def read_file(path: Path) -> str:
     """Return plain text content of a file."""
     suffix = path.suffix.lower()
 
-    if suffix in (".md", ".txt"):
+    if suffix in (".md", ".txt", ".py", ".jsonl"):
         return path.read_text(encoding="utf-8", errors="ignore")
 
     if suffix == ".pdf":

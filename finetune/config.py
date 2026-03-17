@@ -9,8 +9,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 @dataclass
 class TrainConfig:
     # Base model
-    base_model: str = "all-MiniLM-L6-v2"
-    hidden_dim: int = 384  # output dimension of all-MiniLM-L6-v2
+    base_model: str = "BAAI/bge-m3"
+    hidden_dim: int = 1024  # output dimension of bge-m3
 
     # LoRA
     lora_rank: int = 8

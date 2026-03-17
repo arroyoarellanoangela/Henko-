@@ -2,7 +2,7 @@
 
 import pytest
 
-from rag.model_registry import ModelInfo, list_models, _registry
+from rag.model_registry import ModelInfo, has_embed_model, list_models, register_embed_model, _registry
 
 
 class TestListModels:
@@ -42,3 +42,28 @@ class TestRegistryContents:
     def test_types_correct(self):
         assert _registry["default_embed"].model_type == "embed"
         assert _registry["default_reranker"].model_type == "reranker"
+
+
+class TestRegisterEmbedModel:
+    def test_register_new_model(self):
+        register_embed_model("test_embed_xyz", "fake/model/path")
+        assert "test_embed_xyz" in _registry
+        assert _registry["test_embed_xyz"].model_type == "embed"
+        assert _registry["test_embed_xyz"].model_id == "fake/model/path"
+        # Cleanup
+        _registry.pop("test_embed_xyz", None)
+
+    def test_has_embed_model_true(self):
+        assert has_embed_model("default_embed") is True
+
+    def test_has_embed_model_false(self):
+        assert has_embed_model("nonexistent_model") is False
+
+    def test_has_embed_model_wrong_type(self):
+        assert has_embed_model("default_reranker") is False
+
+    def test_list_models_includes_loaded_field(self):
+        result = list_models()
+        for name, info in result.items():
+            assert "loaded" in info
+            assert isinstance(info["loaded"], bool)

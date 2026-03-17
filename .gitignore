@@ -1,33 +1,35 @@
 # Python
 __pycache__/
 *.pyc
-.venv/
+*.pyo
 *.egg-info/
+.venv/
+.pytest_cache/
 
-# Environment
+# Environment & secrets
 .env
+secrets/
 
-# Data (ChromaDB vectors — regenerable via ingest)
-data/
+# Data (ChromaDB vectors + finetune data — regenerable)
+data/chroma/
+data/eval/
+data/finetune/
+data/github_knowledge/
 
-# Benchmarks raw data (regenerable)
-benchmark_raw.json
-benchmark_reranker_raw.json
+# Benchmark raw data (regenerable)
+benchmarks/*_raw.json
 
 # Frontend
-kaizen front/node_modules/
-kaizen front/dist/
-kaizen front/.claude/
+frontend/node_modules/
+frontend/dist/
 
 # IDE / OS
 .vscode/
 .idea/
+.claude/
 *.swp
 Thumbs.db
 .DS_Store
 
 # Branding assets (heavy binaries)
 Manifesto/
-
-# Claude
-.claude/

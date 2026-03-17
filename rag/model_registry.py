@@ -84,7 +84,38 @@ def get_reranker(name: str = "default_reranker") -> CrossEncoder:
     return model
 
 
+def register_embed_model(name: str, model_id: str, precision: str = "fp16") -> None:
+    """Register (or update) a named embedding model in the registry.
+
+    Used by domain fine-tuning to add domain-specific models.
+    The model is lazy-loaded on first access via get_embed_model(name).
+    """
+    _registry[name] = ModelInfo(
+        name=name,
+        model_id=model_id,
+        model_type="embed",
+        precision=precision,
+    )
+    # Clear cached instance so it reloads from new path
+    _embed_models.pop(name, None)
+    logger.info("Registered embed model: %s -> %s", name, model_id)
+
+
+def has_embed_model(name: str) -> bool:
+    """Check if a named embedding model is registered."""
+    info = _registry.get(name)
+    return info is not None and info.model_type == "embed"
+
+
 def list_models() -> dict[str, dict]:
     """Return registry contents as plain dicts for API/logging."""
-    return {k: {"model_id": v.model_id, "type": v.model_type, "precision": v.precision}
-            for k, v in _registry.items()}
+    result = {}
+    for k, v in _registry.items():
+        loaded = (k in _embed_models) if v.model_type == "embed" else (k in _reranker_models)
+        result[k] = {
+            "model_id": v.model_id,
+            "type": v.model_type,
+            "precision": v.precision,
+            "loaded": loaded,
+        }
+    return result

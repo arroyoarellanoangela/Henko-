@@ -1,0 +1,39 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+.venv
+*.egg-info
+.pytest_cache
+
+# Data (mounted as volumes)
+data/
+
+# Environment (secrets)
+.env
+secrets/
+
+# Frontend node_modules (rebuilt in Docker)
+kaizen front/node_modules
+kaizen front/dist
+
+# IDE / OS
+.vscode
+.idea
+*.swp
+Thumbs.db
+.DS_Store
+
+# Docs and branding
+Manifesto/
+*.md
+
+# Benchmarks
+benchmark_raw.json
+benchmark_reranker_raw.json
+
+# Claude
+.claude/

@@ -16,9 +16,9 @@ Math:
     update relative to the pretrained weights. With rank=8 and alpha=16,
     scaling = 2.0.
 
-Total trainable params for all-MiniLM-L6-v2 (6 layers, d=384, rank=8):
-    Per layer: 2 targets * 2 * (384 * 8) = 12,288
-    Total:     6 * 12,288 = 73,728  (0.33% of 22M)
+Total trainable params for bge-m3 (12 layers, d=1024, rank=8):
+    Per layer: 2 targets * 2 * (1024 * 8) = 32,768
+    Total:     12 * 32,768 = 393,216  (0.07% of 568M)
 """
 
 import logging

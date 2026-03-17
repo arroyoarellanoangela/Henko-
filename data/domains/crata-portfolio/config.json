@@ -1,0 +1,12 @@
+{
+  "slug": "crata-portfolio",
+  "name": "Crata Portfolio",
+  "description": "Fichas de proyectos reales de Crata AI para estimacion por analogia",
+  "language": "auto",
+  "system_prompt": "",
+  "categories": [],
+  "created_at": "2026-03-16T15:03:55.341160+00:00",
+  "updated_at": "2026-03-16T15:04:15.120051+00:00",
+  "chunk_count": 82,
+  "collection_name": "domain_crata-portfolio"
+}

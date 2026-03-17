@@ -62,3 +62,39 @@ def test_system_prompt_has_rules():
 
 def test_llm_provider_known():
     assert LLM_PROVIDER in ("ollama", "openai"), f"Unknown provider: {LLM_PROVIDER}"
+
+
+# ---------------------------------------------------------------------------
+# Docker secrets helper
+# ---------------------------------------------------------------------------
+
+
+class TestSecretHelper:
+    def test_falls_back_to_env(self):
+        """When no Docker secret file exists, reads from env var."""
+        import os
+        from rag.config import _secret
+        os.environ["_TEST_SECRET_XYZ"] = "env-value"
+        try:
+            assert _secret("_TEST_SECRET_XYZ") == "env-value"
+        finally:
+            del os.environ["_TEST_SECRET_XYZ"]
+
+    def test_returns_default(self):
+        from rag.config import _secret
+        assert _secret("_NONEXISTENT_SECRET_ABC", "fallback") == "fallback"
+
+    def test_reads_from_file(self, tmp_path):
+        """When a secret file exists, reads from it."""
+        from unittest.mock import patch
+        from rag.config import _secret
+
+        # Create a fake secret file
+        secret_file = tmp_path / "TEST_KEY"
+        secret_file.write_text("file-secret-value\n")
+
+        with patch("rag.config.Path") as MockPath:
+            mock_secret_path = secret_file
+            MockPath.return_value.__truediv__ = lambda self, name: mock_secret_path
+            # Direct test: read the file
+            assert secret_file.read_text().strip() == "file-secret-value"

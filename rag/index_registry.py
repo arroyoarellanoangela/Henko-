@@ -1,7 +1,7 @@
 """Index registry — central access point for ChromaDB collections.
 
-V2.1: single "default" index. route_to_index() always returns "default".
-V2.2 will add real routing by category/document type.
+Supports both the static "default" index (main Kaizen knowledge base)
+and dynamic domain-specific indexes created via domain_registry.
 """
 
 import logging
@@ -59,10 +59,29 @@ _registry: dict[str, IndexInfo] = {
 }
 
 
+def register_index(name: str, collection_name: str, embed_model: str = "default_embed", description: str = "") -> None:
+    """Register a new index (used by domain_registry to add domain indexes)."""
+    _registry[name] = IndexInfo(
+        name=name,
+        collection_name=collection_name,
+        embed_model=embed_model,
+        description=description,
+    )
+    logger.info("Registered index: %s (collection=%s)", name, collection_name)
+
+
 def get_index(name: str = "default") -> chromadb.Collection:
-    """Get (or create) a ChromaDB collection by registry name."""
+    """Get (or create) a ChromaDB collection by registry name.
+
+    For domain indexes: if not in _registry, tries to auto-register
+    from domain_registry (lazy loading).
+    """
     if name in _collections:
         return _collections[name]
+
+    # If not in static registry, check if it's a domain
+    if name not in _registry and name.startswith("domain_"):
+        _try_register_domain_index(name)
 
     info = _registry.get(name)
     if info is None:
@@ -79,6 +98,33 @@ def get_index(name: str = "default") -> chromadb.Collection:
     )
     _collections[name] = col
     return col
+
+
+def _try_register_domain_index(name: str) -> None:
+    """Try to auto-register a domain index from domain_registry.
+
+    If a fine-tuned embed model exists for this domain, uses it.
+    Otherwise falls back to the default embed model.
+    """
+    try:
+        from .domain_registry import get_domain
+        from .model_registry import has_embed_model
+        # name format: "domain_<slug>" -> slug
+        slug = name[len("domain_"):]
+        domain = get_domain(slug)
+
+        # Use domain-specific embed model if fine-tuned, else default
+        domain_embed = f"domain_{slug}_embed"
+        embed_model = domain_embed if has_embed_model(domain_embed) else "default_embed"
+
+        register_index(
+            name=name,
+            collection_name=domain.collection_name,
+            embed_model=embed_model,
+            description=f"Domain: {domain.name}",
+        )
+    except (KeyError, ImportError):
+        pass
 
 
 def reset_index(name: str = "default") -> chromadb.Collection:
@@ -105,7 +151,12 @@ def list_indexes() -> list[str]:
 def route_to_index(query: str, hint: str | None = None) -> str:
     """Decide which index to query.
 
-    V2.1: always returns "default".
-    V2.2 will add routing by category, extension, or semantic signals.
+    If hint matches a domain slug, routes to that domain's index.
+    Otherwise returns "default".
     """
+    if hint and f"domain_{hint}" in _registry:
+        return f"domain_{hint}"
+    # Also check if hint itself is a registered index name
+    if hint and hint in _registry:
+        return hint
     return "default"

@@ -1,0 +1,56 @@
+# GPU variant — uses NVIDIA CUDA base for GPU-accelerated embeddings.
+# Requires: nvidia-docker runtime, NVIDIA Container Toolkit.
+#
+# Build:  docker build -f Dockerfile.gpu -t kaizen:gpu .
+# Run:    docker run --gpus all -p 8000:8000 kaizen:gpu
+
+# ---- Stage 1: Frontend build ----
+FROM node:22-alpine AS frontend
+
+WORKDIR /app/frontend
+COPY ["kaizen front/package.json", "kaizen front/package-lock.json", "./"]
+RUN npm ci --production=false
+COPY ["kaizen front/", "./"]
+RUN npm run build
+
+
+# ---- Stage 2: Python backend with CUDA ----
+FROM nvidia/cuda:12.6.3-runtime-ubuntu24.04 AS backend
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.12 python3.12-venv python3-pip build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Use python3.12 as default
+RUN ln -sf /usr/bin/python3.12 /usr/bin/python && \
+    ln -sf /usr/bin/python3.12 /usr/bin/python3
+
+WORKDIR /app
+
+# Install Python deps
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --break-system-packages -r requirements.txt
+
+# Copy app code
+COPY rag/ ./rag/
+COPY finetune/ ./finetune/
+COPY tests/ ./tests/
+COPY api.py app.py ingest.py bench.py pyproject.toml ./
+
+# Copy built frontend
+COPY --from=frontend /app/frontend/dist ./static/
+
+# Data dirs
+RUN mkdir -p /app/data/chroma /app/data/eval /app/data/domains /app/data/finetune
+
+ENV CHROMA_DIR=/app/data/chroma \
+    KNOWLEDGE_DIR=/app/data/knowledge \
+    PYTHONUNBUFFERED=1 \
+    NVIDIA_VISIBLE_DEVICES=all
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD python -c "import requests; r=requests.get('http://localhost:8000/api/health',timeout=3); assert r.status_code==200"
+
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]

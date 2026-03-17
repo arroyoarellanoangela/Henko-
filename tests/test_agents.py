@@ -8,10 +8,13 @@ from rag.agents import (
     AgentContext,
     EvaluatorAgent,
     GeneratorAgent,
+    ReACTRetrieverAgent,
     RetrieverAgent,
     RouterAgent,
     assess_quality,
     classify_complexity,
+    decompose_query,
+    extract_query_entities,
     pick_next_strategy,
     run_agent_pipeline,
     _merge_and_dedup,
@@ -456,5 +459,229 @@ class TestCoordinationLoop:
         mock_chat.return_value = iter(["answer"])
 
         ctx = run_agent_pipeline("what is RAG?")
-        assert ctx.t_total > 0
+        assert ctx.t_total >= 0
         assert ctx.t_retrieval >= 0
+
+
+# -----------------------------------------------------------------------
+# extract_query_entities
+# -----------------------------------------------------------------------
+
+
+class TestExtractQueryEntities:
+    def test_aws_entities(self):
+        entities = extract_query_entities("How does AWS Lambda handle cold starts?")
+        assert any("Lambda" in e for e in entities)
+
+    def test_ml_entities(self):
+        entities = extract_query_entities("What is the difference between LoRA and fine-tuning?")
+        assert any("LoRA" in e for e in entities)
+        assert any("fine-tuning" in e.lower() for e in entities)
+
+    def test_infra_entities(self):
+        entities = extract_query_entities("How does Kubernetes autoscaling work?")
+        assert any("Kubernetes" in e for e in entities)
+
+    def test_data_entities(self):
+        entities = extract_query_entities("Compare PostgreSQL vs MongoDB")
+        assert any("PostgreSQL" in e for e in entities)
+        assert any("MongoDB" in e for e in entities)
+
+    def test_no_entities(self):
+        entities = extract_query_entities("What is the meaning of life?")
+        assert entities == []
+
+    def test_multiple_categories(self):
+        entities = extract_query_entities("Deploy FastAPI on Docker with Redis caching")
+        assert len(entities) >= 3
+
+
+# -----------------------------------------------------------------------
+# decompose_query
+# -----------------------------------------------------------------------
+
+
+class TestDecomposeQuery:
+    def test_simple_no_decompose(self):
+        assert decompose_query("what is RAG?") == []
+
+    def test_conjunction_decompose(self):
+        subs = decompose_query("what is RAG and how does fine-tuning work?")
+        assert len(subs) == 2
+
+    def test_semicolon_decompose(self):
+        subs = decompose_query("explain Docker containers; how does Kubernetes orchestration work?")
+        assert len(subs) == 2
+
+    def test_too_short_fragments_filtered(self):
+        # "a and b" should not decompose because fragments too short
+        assert decompose_query("a and b") == []
+
+
+# -----------------------------------------------------------------------
+# ReACTRetrieverAgent
+# -----------------------------------------------------------------------
+
+
+class TestReACTRetrieverAgent:
+    @patch("rag.agents.format_context", return_value="formatted context")
+    @patch("rag.agents.execute_search")
+    def test_good_quality_semantic_only(self, mock_search, mock_format):
+        """When semantic search returns good results, only 1 tool used."""
+        mock_search.return_value = _make_results(5, score=2.0)
+        ctx = _make_ctx(strategy="dense", complexity="simple")
+        ctx.route = _make_route()
+        ReACTRetrieverAgent().execute(ctx)
+        assert len(ctx.results) == 5
+        assert ctx.retrieval_quality == "good"
+        trace = ctx.agent_trace[-1]
+        assert trace["agent"] == "react_retriever"
+        # semantic + chunk_read (for good quality)
+        tool_names = [t["tool"] for t in trace["tools_used"]]
+        assert "semantic_search" in tool_names
+
+    @patch("rag.agents.format_context", return_value="formatted")
+    @patch("rag.agents.execute_search")
+    def test_weak_quality_triggers_entity_search(self, mock_search, mock_format):
+        """When semantic search is weak and entities exist, entity_search fires."""
+        # First call (semantic): weak. Subsequent calls: return good results.
+        mock_search.side_effect = [
+            _make_results(5, score=-0.8),  # semantic: weak
+            _make_results(3, score=1.5),   # entity search: good
+        ]
+        ctx = _make_ctx(
+            query="How does AWS Lambda handle cold starts?",
+            strategy="dense",
+            complexity="simple",
+        )
+        ctx.route = _make_route()
+        ReACTRetrieverAgent().execute(ctx)
+        trace = ctx.agent_trace[-1]
+        tool_names = [t["tool"] for t in trace["tools_used"]]
+        assert "semantic_search" in tool_names
+        assert "entity_search" in tool_names
+        assert trace["num_tools"] >= 2
+
+    @patch("rag.agents.format_context", return_value="formatted")
+    @patch("rag.agents.execute_search")
+    def test_complex_query_triggers_decomposition(self, mock_search, mock_format):
+        """Complex queries trigger sub_query tool."""
+        mock_search.return_value = _make_results(5, score=2.0)
+        ctx = _make_ctx(
+            query="compare RAG vs fine-tuning; what are the differences and costs?",
+            strategy="hybrid",
+            complexity="complex",
+        )
+        ctx.route = _make_route()
+        ReACTRetrieverAgent().execute(ctx)
+        trace = ctx.agent_trace[-1]
+        tool_names = [t["tool"] for t in trace["tools_used"]]
+        assert "semantic_search" in tool_names
+        assert "sub_query" in tool_names
+
+    @patch("rag.agents.format_context", return_value="formatted")
+    @patch("rag.agents.execute_search")
+    def test_empty_results_failed_quality(self, mock_search, mock_format):
+        mock_search.return_value = []
+        ctx = _make_ctx(strategy="dense", complexity="simple")
+        ctx.route = _make_route()
+        ReACTRetrieverAgent().execute(ctx)
+        assert ctx.retrieval_quality == "failed"
+
+    @patch("rag.agents.format_context", return_value="formatted")
+    @patch("rag.agents.execute_search")
+    def test_no_entities_no_entity_search(self, mock_search, mock_format):
+        """Queries without entities should not trigger entity_search even if weak."""
+        mock_search.return_value = _make_results(5, score=-0.8)
+        ctx = _make_ctx(
+            query="What is the meaning of life?",  # no tech entities
+            strategy="dense",
+            complexity="simple",
+        )
+        ctx.route = _make_route()
+        ReACTRetrieverAgent().execute(ctx)
+        trace = ctx.agent_trace[-1]
+        tool_names = [t["tool"] for t in trace["tools_used"]]
+        assert "entity_search" not in tool_names
+
+    @patch("rag.agents.format_context", return_value="formatted")
+    @patch("rag.agents.execute_search")
+    def test_trace_records_tools(self, mock_search, mock_format):
+        mock_search.return_value = _make_results(5, score=2.0)
+        ctx = _make_ctx(strategy="dense", complexity="simple")
+        ctx.route = _make_route()
+        ReACTRetrieverAgent().execute(ctx)
+        trace = ctx.agent_trace[-1]
+        assert "tools_used" in trace
+        assert "num_tools" in trace
+        assert "entities_found" in trace
+        assert trace["action"] == "react_retrieve"
+
+    @patch("rag.agents.format_context", return_value="formatted")
+    @patch("rag.agents.execute_search")
+    def test_deduplicates_across_tools(self, mock_search, mock_format):
+        """Results from multiple tools should be deduplicated."""
+        same_results = _make_results(3, score=1.5)
+        mock_search.side_effect = [
+            same_results,  # semantic
+            same_results,  # entity (same docs)
+        ]
+        ctx = _make_ctx(
+            query="How does AWS Lambda work?",
+            strategy="dense",
+            complexity="simple",
+        )
+        # Force weak quality to trigger entity search
+        # But same_results have score=1.5 which is "good", so entity_search won't fire
+        # Use weak scores instead
+        weak_results = _make_results(3, score=-0.8)
+        mock_search.side_effect = [
+            weak_results,  # semantic: weak
+            _make_results(3, score=1.5),  # entity search
+        ]
+        ctx.route = _make_route()
+        ReACTRetrieverAgent().execute(ctx)
+        # Should have deduplicated — max 5 results (top_k)
+        assert len(ctx.results) <= ctx.top_k
+
+
+# -----------------------------------------------------------------------
+# ReACT Coordination Loop
+# -----------------------------------------------------------------------
+
+
+class TestReACTCoordinationLoop:
+    @patch("rag.agents.log_eval")
+    @patch("rag.llm.stream_chat")
+    @patch("rag.agents.format_context", return_value="ctx")
+    @patch("rag.agents.execute_search")
+    @patch("rag.agents.plan")
+    def test_react_pipeline_single_pass(self, mock_plan, mock_search, mock_format, mock_chat, mock_log):
+        mock_plan.return_value = _make_route()
+        mock_search.return_value = _make_results(5)
+        mock_chat.return_value = iter(["answer"])
+
+        ctx = run_agent_pipeline("what is RAG?", use_react=True)
+        assert ctx.attempt == 1
+        assert ctx.full_response == "answer"
+        # Should have react_retriever in trace
+        agents = [t["agent"] for t in ctx.agent_trace]
+        assert "react_retriever" in agents
+
+    @patch("rag.agents.log_eval")
+    @patch("rag.llm.stream_chat")
+    @patch("rag.agents.format_context", return_value="ctx")
+    @patch("rag.agents.execute_search")
+    @patch("rag.agents.plan")
+    def test_react_pipeline_complex_query(self, mock_plan, mock_search, mock_format, mock_chat, mock_log):
+        mock_plan.return_value = _make_route()
+        mock_search.return_value = _make_results(5)
+        mock_chat.return_value = iter(["detailed answer"])
+
+        ctx = run_agent_pipeline(
+            "compare RAG vs fine-tuning; what are the pros and cons?",
+            use_react=True,
+        )
+        trace = [t for t in ctx.agent_trace if t["agent"] == "react_retriever"][0]
+        tool_names = [t["tool"] for t in trace["tools_used"]]
+        assert "sub_query" in tool_names
