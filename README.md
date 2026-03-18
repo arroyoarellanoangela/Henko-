@@ -1,6 +1,10 @@
 <div align="center">
 
-# Henko
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/banner-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="assets/banner.png">
+  <img alt="Henko" src="assets/banner.png" width="600">
+</picture>
 
 **The knowledge base that adapts to anything.**
 
