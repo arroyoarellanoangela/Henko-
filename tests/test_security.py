@@ -256,7 +256,7 @@ class TestRateLimiter:
 class TestRequireApiKey:
     def test_dev_mode_no_keys(self):
         """When no API_KEYS configured, returns 'dev'."""
-        with patch("rag.security.AUTH_ENABLED", False):
+        with patch("suyven_rag.rag.security.AUTH_ENABLED", False):
             from unittest.mock import MagicMock
 
             req = MagicMock()
@@ -265,8 +265,8 @@ class TestRequireApiKey:
 
     def test_missing_header_raises(self):
         with (
-            patch("rag.security.AUTH_ENABLED", True),
-            patch("rag.security.API_KEYS", {"valid-key-123"}),
+            patch("suyven_rag.rag.security.AUTH_ENABLED", True),
+            patch("suyven_rag.rag.security.API_KEYS", {"valid-key-123"}),
         ):
             from unittest.mock import MagicMock
 
@@ -278,8 +278,8 @@ class TestRequireApiKey:
 
     def test_invalid_key_raises(self):
         with (
-            patch("rag.security.AUTH_ENABLED", True),
-            patch("rag.security.API_KEYS", {"valid-key-123"}),
+            patch("suyven_rag.rag.security.AUTH_ENABLED", True),
+            patch("suyven_rag.rag.security.API_KEYS", {"valid-key-123"}),
         ):
             from unittest.mock import MagicMock
 
@@ -291,8 +291,8 @@ class TestRequireApiKey:
 
     def test_valid_key_passes(self):
         with (
-            patch("rag.security.AUTH_ENABLED", True),
-            patch("rag.security.API_KEYS", {"valid-key-123"}),
+            patch("suyven_rag.rag.security.AUTH_ENABLED", True),
+            patch("suyven_rag.rag.security.API_KEYS", {"valid-key-123"}),
         ):
             from unittest.mock import MagicMock
 

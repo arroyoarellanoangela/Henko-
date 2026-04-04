@@ -162,7 +162,7 @@ class TestMergeAndDedup:
 
 
 class TestRouterAgent:
-    @patch("rag.agents.plan")
+    @patch("suyven_rag.rag.agents.plan")
     def test_simple_query_dense(self, mock_plan):
         mock_plan.return_value = _make_route()
         ctx = _make_ctx()
@@ -173,21 +173,21 @@ class TestRouterAgent:
         assert len(ctx.agent_trace) == 1
         assert ctx.agent_trace[0]["agent"] == "router"
 
-    @patch("rag.agents.plan")
+    @patch("suyven_rag.rag.agents.plan")
     def test_complex_query_hybrid(self, mock_plan):
         mock_plan.return_value = _make_route()
         ctx = _make_ctx(query="compare RAG vs fine-tuning; what are the pros and cons?")
         RouterAgent().execute(ctx)
         assert ctx.strategy == "hybrid"
 
-    @patch("rag.agents.plan")
+    @patch("suyven_rag.rag.agents.plan")
     def test_category_hint_filtered(self, mock_plan):
         mock_plan.return_value = _make_route()
         ctx = _make_ctx(category="aws")
         RouterAgent().execute(ctx)
         assert ctx.strategy == "category_filtered"
 
-    @patch("rag.agents.plan")
+    @patch("suyven_rag.rag.agents.plan")
     def test_retry_uses_evaluator_strategy(self, mock_plan):
         mock_plan.return_value = _make_route()
         ctx = _make_ctx(attempt=2)
@@ -202,8 +202,8 @@ class TestRouterAgent:
 
 
 class TestRetrieverAgent:
-    @patch("rag.agents.format_context", return_value="formatted context")
-    @patch("rag.agents.execute_search")
+    @patch("suyven_rag.rag.agents.format_context", return_value="formatted context")
+    @patch("suyven_rag.rag.agents.execute_search")
     def test_dense_strategy(self, mock_search, mock_format):
         mock_search.return_value = _make_results(5)
         ctx = _make_ctx(strategy="dense")
@@ -213,8 +213,8 @@ class TestRetrieverAgent:
         assert ctx.retrieval_quality == "good"
         assert len(ctx.reranker_scores) == 5
 
-    @patch("rag.agents.format_context", return_value="formatted")
-    @patch("rag.agents.execute_search")
+    @patch("suyven_rag.rag.agents.format_context", return_value="formatted")
+    @patch("suyven_rag.rag.agents.execute_search")
     def test_empty_results_failed_quality(self, mock_search, mock_format):
         mock_search.return_value = []
         ctx = _make_ctx(strategy="dense")
@@ -223,8 +223,8 @@ class TestRetrieverAgent:
         assert ctx.retrieval_quality == "failed"
         assert len(ctx.results) == 0
 
-    @patch("rag.agents.format_context", return_value="formatted")
-    @patch("rag.agents.execute_search")
+    @patch("suyven_rag.rag.agents.format_context", return_value="formatted")
+    @patch("suyven_rag.rag.agents.execute_search")
     def test_hybrid_merges_on_low_results(self, mock_search, mock_format):
         # First call with category returns 2, second without returns 5
         mock_search.side_effect = [_make_results(2), _make_results(5)]
@@ -234,8 +234,8 @@ class TestRetrieverAgent:
         assert mock_search.call_count == 2
         assert len(ctx.results) <= 5
 
-    @patch("rag.agents.format_context", return_value="formatted")
-    @patch("rag.agents.execute_search")
+    @patch("suyven_rag.rag.agents.format_context", return_value="formatted")
+    @patch("suyven_rag.rag.agents.execute_search")
     def test_weak_quality_detection(self, mock_search, mock_format):
         mock_search.return_value = _make_results(5, score=-0.8)
         ctx = _make_ctx(strategy="dense")
@@ -250,7 +250,7 @@ class TestRetrieverAgent:
 
 
 class TestGeneratorAgent:
-    @patch("rag.llm.stream_chat")
+    @patch("suyven_rag.rag.llm.stream_chat")
     def test_execute_collects_response(self, mock_chat):
         mock_chat.return_value = iter(["Hello", " world"])
         ctx = _make_ctx()
@@ -261,7 +261,7 @@ class TestGeneratorAgent:
         assert ctx.full_response == "Hello world"
         assert len(ctx.agent_trace) == 1
 
-    @patch("rag.llm.stream_chat")
+    @patch("suyven_rag.rag.llm.stream_chat")
     def test_weak_quality_adjusts_prompt(self, mock_chat):
         mock_chat.return_value = iter(["ok"])
         ctx = _make_ctx()
@@ -274,7 +274,7 @@ class TestGeneratorAgent:
         prompt = call_kwargs.kwargs.get("system_prompt", "")
         assert "incomplete" in prompt or "insufficient" in prompt
 
-    @patch("rag.llm.stream_chat")
+    @patch("suyven_rag.rag.llm.stream_chat")
     def test_insufficient_detection(self, mock_chat):
         mock_chat.return_value = iter(["The context is insufficient to answer this question."])
         ctx = _make_ctx()
@@ -284,7 +284,7 @@ class TestGeneratorAgent:
         GeneratorAgent().execute(ctx)
         assert ctx.llm_said_insufficient is True
 
-    @patch("rag.llm.stream_chat")
+    @patch("suyven_rag.rag.llm.stream_chat")
     def test_stream_yields_tokens(self, mock_chat):
         mock_chat.return_value = iter(["a", "b", "c"])
         ctx = _make_ctx()
@@ -318,46 +318,46 @@ class TestEvaluatorAgent:
         ctx.t_llm = 1.0
         return ctx
 
-    @patch("rag.agents.log_eval")
+    @patch("suyven_rag.rag.agents.log_eval")
     def test_healthy_no_retry(self, mock_log):
         ctx = self._ctx_with_results(scores=[2.0, 1.5, 1.0, 0.5, 0.3])
         EvaluatorAgent().execute(ctx)
         assert ctx.should_retry is False
         mock_log.assert_called_once()
 
-    @patch("rag.agents.log_eval")
+    @patch("suyven_rag.rag.agents.log_eval")
     def test_weak_retrieval_triggers_retry(self, mock_log):
         ctx = self._ctx_with_results(scores=[-0.8, -0.6, -0.9, -0.7, -0.5])
         EvaluatorAgent().execute(ctx)
         assert ctx.should_retry is True
         assert ctx.retry_strategy == "hybrid"
 
-    @patch("rag.agents.log_eval")
+    @patch("suyven_rag.rag.agents.log_eval")
     def test_retrieval_failure_triggers_retry(self, mock_log):
         ctx = self._ctx_with_results(scores=[-3.0, -2.5, -4.0, -2.1, -3.5])
         EvaluatorAgent().execute(ctx)
         assert ctx.should_retry is True
 
-    @patch("rag.agents.log_eval")
+    @patch("suyven_rag.rag.agents.log_eval")
     def test_corpus_gap_no_retry(self, mock_log):
         ctx = self._ctx_with_results(scores=[2.0, 1.5, 1.0, 0.5, 0.3], insufficient=True)
         EvaluatorAgent().execute(ctx)
         assert ctx.should_retry is False
         assert "corpus_gap" in ctx.eval_flags
 
-    @patch("rag.agents.log_eval")
+    @patch("suyven_rag.rag.agents.log_eval")
     def test_max_attempts_stops_retry(self, mock_log):
         ctx = self._ctx_with_results(scores=[-0.8, -0.6, -0.9, -0.7, -0.5], attempt=3)
         EvaluatorAgent().execute(ctx)
         assert ctx.should_retry is False
 
-    @patch("rag.agents.log_eval")
+    @patch("suyven_rag.rag.agents.log_eval")
     def test_strategy_escalation_dense_to_hybrid(self, mock_log):
         ctx = self._ctx_with_results(scores=[-0.8, -0.6, -0.9, -0.7, -0.5], strategy="dense")
         EvaluatorAgent().execute(ctx)
         assert ctx.retry_strategy == "hybrid"
 
-    @patch("rag.agents.log_eval")
+    @patch("suyven_rag.rag.agents.log_eval")
     def test_strategy_escalation_category_filtered(self, mock_log):
         ctx = self._ctx_with_results(
             scores=[-0.8, -0.6, -0.9, -0.7, -0.5], strategy="category_filtered"
@@ -365,19 +365,19 @@ class TestEvaluatorAgent:
         EvaluatorAgent().execute(ctx)
         assert ctx.retry_strategy == "hybrid"
 
-    @patch("rag.agents.log_eval")
+    @patch("suyven_rag.rag.agents.log_eval")
     def test_flags_include_strategy_tag(self, mock_log):
         ctx = self._ctx_with_results(scores=[2.0, 1.5, 1.0, 0.5, 0.3])
         EvaluatorAgent().execute(ctx)
         assert any(f.startswith("strategy_") for f in ctx.eval_flags)
 
-    @patch("rag.agents.log_eval")
+    @patch("suyven_rag.rag.agents.log_eval")
     def test_retry_flags_include_retry_tag(self, mock_log):
         ctx = self._ctx_with_results(scores=[2.0, 1.5, 1.0, 0.5, 0.3], attempt=2)
         EvaluatorAgent().execute(ctx)
         assert "retry_2" in ctx.eval_flags
 
-    @patch("rag.agents.log_eval")
+    @patch("suyven_rag.rag.agents.log_eval")
     def test_same_strategy_no_retry(self, mock_log):
         """If pick_next_strategy returns the same strategy, don't retry."""
         ctx = self._ctx_with_results(scores=[-0.8, -0.6, -0.9, -0.7, -0.5], strategy="hybrid")
@@ -394,11 +394,11 @@ class TestEvaluatorAgent:
 
 
 class TestCoordinationLoop:
-    @patch("rag.agents.log_eval")
-    @patch("rag.llm.stream_chat")
-    @patch("rag.agents.format_context", return_value="ctx")
-    @patch("rag.agents.execute_search")
-    @patch("rag.agents.plan")
+    @patch("suyven_rag.rag.agents.log_eval")
+    @patch("suyven_rag.rag.llm.stream_chat")
+    @patch("suyven_rag.rag.agents.format_context", return_value="ctx")
+    @patch("suyven_rag.rag.agents.execute_search")
+    @patch("suyven_rag.rag.agents.plan")
     def test_single_pass_good_retrieval(
         self, mock_plan, mock_search, mock_format, mock_chat, mock_log
     ):
@@ -411,11 +411,11 @@ class TestCoordinationLoop:
         assert ctx.full_response == "answer"
         assert len(ctx.agent_trace) == 4  # router, retriever, generator, evaluator
 
-    @patch("rag.agents.log_eval")
-    @patch("rag.llm.stream_chat")
-    @patch("rag.agents.format_context", return_value="ctx")
-    @patch("rag.agents.execute_search")
-    @patch("rag.agents.plan")
+    @patch("suyven_rag.rag.agents.log_eval")
+    @patch("suyven_rag.rag.llm.stream_chat")
+    @patch("suyven_rag.rag.agents.format_context", return_value="ctx")
+    @patch("suyven_rag.rag.agents.execute_search")
+    @patch("suyven_rag.rag.agents.plan")
     def test_retry_once_then_success(
         self, mock_plan, mock_search, mock_format, mock_chat, mock_log
     ):
@@ -431,11 +431,11 @@ class TestCoordinationLoop:
         assert ctx.attempt == 2
         assert len(ctx.agent_trace) == 8  # 4 per attempt
 
-    @patch("rag.agents.log_eval")
-    @patch("rag.llm.stream_chat")
-    @patch("rag.agents.format_context", return_value="ctx")
-    @patch("rag.agents.execute_search")
-    @patch("rag.agents.plan")
+    @patch("suyven_rag.rag.agents.log_eval")
+    @patch("suyven_rag.rag.llm.stream_chat")
+    @patch("suyven_rag.rag.agents.format_context", return_value="ctx")
+    @patch("suyven_rag.rag.agents.execute_search")
+    @patch("suyven_rag.rag.agents.plan")
     def test_max_attempts_exhausted(self, mock_plan, mock_search, mock_format, mock_chat, mock_log):
         mock_plan.return_value = _make_route()
         mock_search.return_value = _make_results(5, score=-0.8)  # always weak
@@ -445,11 +445,11 @@ class TestCoordinationLoop:
         # Should stop at max_attempts (3): attempt 1 weak -> retry, attempt 2 weak -> retry same strategy -> stop
         assert ctx.attempt <= 3
 
-    @patch("rag.agents.log_eval")
-    @patch("rag.llm.stream_chat")
-    @patch("rag.agents.format_context", return_value="ctx")
-    @patch("rag.agents.execute_search")
-    @patch("rag.agents.plan")
+    @patch("suyven_rag.rag.agents.log_eval")
+    @patch("suyven_rag.rag.llm.stream_chat")
+    @patch("suyven_rag.rag.agents.format_context", return_value="ctx")
+    @patch("suyven_rag.rag.agents.execute_search")
+    @patch("suyven_rag.rag.agents.plan")
     def test_trace_records_all_steps(
         self, mock_plan, mock_search, mock_format, mock_chat, mock_log
     ):
@@ -461,11 +461,11 @@ class TestCoordinationLoop:
         agents = [t["agent"] for t in ctx.agent_trace]
         assert agents == ["router", "retriever", "generator", "evaluator"]
 
-    @patch("rag.agents.log_eval")
-    @patch("rag.llm.stream_chat")
-    @patch("rag.agents.format_context", return_value="ctx")
-    @patch("rag.agents.execute_search")
-    @patch("rag.agents.plan")
+    @patch("suyven_rag.rag.agents.log_eval")
+    @patch("suyven_rag.rag.llm.stream_chat")
+    @patch("suyven_rag.rag.agents.format_context", return_value="ctx")
+    @patch("suyven_rag.rag.agents.execute_search")
+    @patch("suyven_rag.rag.agents.plan")
     def test_timing_populated(self, mock_plan, mock_search, mock_format, mock_chat, mock_log):
         mock_plan.return_value = _make_route()
         mock_search.return_value = _make_results(5)
@@ -537,8 +537,8 @@ class TestDecomposeQuery:
 
 
 class TestReACTRetrieverAgent:
-    @patch("rag.agents.format_context", return_value="formatted context")
-    @patch("rag.agents.execute_search")
+    @patch("suyven_rag.rag.agents.format_context", return_value="formatted context")
+    @patch("suyven_rag.rag.agents.execute_search")
     def test_good_quality_semantic_only(self, mock_search, mock_format):
         """When semantic search returns good results, only 1 tool used."""
         mock_search.return_value = _make_results(5, score=2.0)
@@ -553,8 +553,8 @@ class TestReACTRetrieverAgent:
         tool_names = [t["tool"] for t in trace["tools_used"]]
         assert "semantic_search" in tool_names
 
-    @patch("rag.agents.format_context", return_value="formatted")
-    @patch("rag.agents.execute_search")
+    @patch("suyven_rag.rag.agents.format_context", return_value="formatted")
+    @patch("suyven_rag.rag.agents.execute_search")
     def test_weak_quality_triggers_entity_search(self, mock_search, mock_format):
         """When semantic search is weak and entities exist, entity_search fires."""
         # First call (semantic): weak. Subsequent calls: return good results.
@@ -575,8 +575,8 @@ class TestReACTRetrieverAgent:
         assert "entity_search" in tool_names
         assert trace["num_tools"] >= 2
 
-    @patch("rag.agents.format_context", return_value="formatted")
-    @patch("rag.agents.execute_search")
+    @patch("suyven_rag.rag.agents.format_context", return_value="formatted")
+    @patch("suyven_rag.rag.agents.execute_search")
     def test_complex_query_triggers_decomposition(self, mock_search, mock_format):
         """Complex queries trigger sub_query tool."""
         mock_search.return_value = _make_results(5, score=2.0)
@@ -592,8 +592,8 @@ class TestReACTRetrieverAgent:
         assert "semantic_search" in tool_names
         assert "sub_query" in tool_names
 
-    @patch("rag.agents.format_context", return_value="formatted")
-    @patch("rag.agents.execute_search")
+    @patch("suyven_rag.rag.agents.format_context", return_value="formatted")
+    @patch("suyven_rag.rag.agents.execute_search")
     def test_empty_results_failed_quality(self, mock_search, mock_format):
         mock_search.return_value = []
         ctx = _make_ctx(strategy="dense", complexity="simple")
@@ -601,8 +601,8 @@ class TestReACTRetrieverAgent:
         ReACTRetrieverAgent().execute(ctx)
         assert ctx.retrieval_quality == "failed"
 
-    @patch("rag.agents.format_context", return_value="formatted")
-    @patch("rag.agents.execute_search")
+    @patch("suyven_rag.rag.agents.format_context", return_value="formatted")
+    @patch("suyven_rag.rag.agents.execute_search")
     def test_no_entities_no_entity_search(self, mock_search, mock_format):
         """Queries without entities should not trigger entity_search even if weak."""
         mock_search.return_value = _make_results(5, score=-0.8)
@@ -617,8 +617,8 @@ class TestReACTRetrieverAgent:
         tool_names = [t["tool"] for t in trace["tools_used"]]
         assert "entity_search" not in tool_names
 
-    @patch("rag.agents.format_context", return_value="formatted")
-    @patch("rag.agents.execute_search")
+    @patch("suyven_rag.rag.agents.format_context", return_value="formatted")
+    @patch("suyven_rag.rag.agents.execute_search")
     def test_trace_records_tools(self, mock_search, mock_format):
         mock_search.return_value = _make_results(5, score=2.0)
         ctx = _make_ctx(strategy="dense", complexity="simple")
@@ -630,8 +630,8 @@ class TestReACTRetrieverAgent:
         assert "entities_found" in trace
         assert trace["action"] == "react_retrieve"
 
-    @patch("rag.agents.format_context", return_value="formatted")
-    @patch("rag.agents.execute_search")
+    @patch("suyven_rag.rag.agents.format_context", return_value="formatted")
+    @patch("suyven_rag.rag.agents.execute_search")
     def test_deduplicates_across_tools(self, mock_search, mock_format):
         """Results from multiple tools should be deduplicated."""
         same_results = _make_results(3, score=1.5)
@@ -664,11 +664,11 @@ class TestReACTRetrieverAgent:
 
 
 class TestReACTCoordinationLoop:
-    @patch("rag.agents.log_eval")
-    @patch("rag.llm.stream_chat")
-    @patch("rag.agents.format_context", return_value="ctx")
-    @patch("rag.agents.execute_search")
-    @patch("rag.agents.plan")
+    @patch("suyven_rag.rag.agents.log_eval")
+    @patch("suyven_rag.rag.llm.stream_chat")
+    @patch("suyven_rag.rag.agents.format_context", return_value="ctx")
+    @patch("suyven_rag.rag.agents.execute_search")
+    @patch("suyven_rag.rag.agents.plan")
     def test_react_pipeline_single_pass(
         self, mock_plan, mock_search, mock_format, mock_chat, mock_log
     ):
@@ -683,11 +683,11 @@ class TestReACTCoordinationLoop:
         agents = [t["agent"] for t in ctx.agent_trace]
         assert "react_retriever" in agents
 
-    @patch("rag.agents.log_eval")
-    @patch("rag.llm.stream_chat")
-    @patch("rag.agents.format_context", return_value="ctx")
-    @patch("rag.agents.execute_search")
-    @patch("rag.agents.plan")
+    @patch("suyven_rag.rag.agents.log_eval")
+    @patch("suyven_rag.rag.llm.stream_chat")
+    @patch("suyven_rag.rag.agents.format_context", return_value="ctx")
+    @patch("suyven_rag.rag.agents.execute_search")
+    @patch("suyven_rag.rag.agents.plan")
     def test_react_pipeline_complex_query(
         self, mock_plan, mock_search, mock_format, mock_chat, mock_log
     ):

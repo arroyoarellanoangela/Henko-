@@ -19,8 +19,10 @@ from fastapi.testclient import TestClient
 def _mock_lifespan():
     """Patch heavy startup (Ollama, ChromaDB) so TestClient boots fast."""
     return [
-        patch("api.ensure_ollama"),
-        patch("api.get_index", return_value=MagicMock(count=MagicMock(return_value=100))),
+        patch("suyven_rag.api.ensure_ollama"),
+        patch(
+            "suyven_rag.api.get_index", return_value=MagicMock(count=MagicMock(return_value=100))
+        ),
     ]
 
 
@@ -31,7 +33,7 @@ def client():
     for p in patches:
         p.start()
 
-    from api import app
+    from suyven_rag.api import app
 
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
@@ -112,7 +114,7 @@ class TestMetricsEndpoint:
 
 
 class TestQueryEndpoint:
-    @patch("api.prepare_agent_context")
+    @patch("suyven_rag.api.prepare_agent_context")
     def test_returns_sse_stream(self, mock_prepare, client):
         """Full query flow: router -> retriever -> generator -> evaluator."""
         ctx = MagicMock()
@@ -170,7 +172,7 @@ class TestQueryEndpoint:
         assert len(done) == 1
         assert "agent_trace" in done[0]
 
-    @patch("api.prepare_agent_context")
+    @patch("suyven_rag.api.prepare_agent_context")
     def test_no_results_fallback_message(self, mock_prepare, client):
         """When retrieval returns nothing and no fallback configured."""
         ctx = MagicMock()
@@ -185,7 +187,10 @@ class TestQueryEndpoint:
 
         mock_prepare.return_value = (ctx, MagicMock(), MagicMock(), MagicMock(), MagicMock())
 
-        with patch("api.FALLBACK_PROVIDER", ""), patch("api.FALLBACK_MODEL", ""):
+        with (
+            patch("suyven_rag.api.FALLBACK_PROVIDER", ""),
+            patch("suyven_rag.api.FALLBACK_MODEL", ""),
+        ):
             resp = client.post("/api/query", json={"query": "meaning of life"})
 
         events = []
@@ -226,20 +231,20 @@ class TestAuthEnforcement:
         resp = client.get("/api/health")
         assert resp.status_code == 200
 
-    @patch("rag.security.AUTH_ENABLED", True)
-    @patch("rag.security.API_KEYS", {"secret-key-123"})
+    @patch("suyven_rag.rag.security.AUTH_ENABLED", True)
+    @patch("suyven_rag.rag.security.API_KEYS", {"secret-key-123"})
     def test_missing_key_returns_401(self, client):
         resp = client.get("/api/health")
         assert resp.status_code == 401
 
-    @patch("rag.security.AUTH_ENABLED", True)
-    @patch("rag.security.API_KEYS", {"secret-key-123"})
+    @patch("suyven_rag.rag.security.AUTH_ENABLED", True)
+    @patch("suyven_rag.rag.security.API_KEYS", {"secret-key-123"})
     def test_invalid_key_returns_401(self, client):
         resp = client.get("/api/health", headers={"X-API-Key": "wrong"})
         assert resp.status_code == 401
 
-    @patch("rag.security.AUTH_ENABLED", True)
-    @patch("rag.security.API_KEYS", {"secret-key-123"})
+    @patch("suyven_rag.rag.security.AUTH_ENABLED", True)
+    @patch("suyven_rag.rag.security.API_KEYS", {"secret-key-123"})
     def test_valid_key_passes(self, client):
         resp = client.get("/api/health", headers={"X-API-Key": "secret-key-123"})
         assert resp.status_code == 200
@@ -251,7 +256,7 @@ class TestAuthEnforcement:
 
 
 class TestDomainEndpoints:
-    @patch("api.create_domain")
+    @patch("suyven_rag.api.create_domain")
     def test_create_domain(self, mock_create, client):
         from dataclasses import dataclass, field
 
@@ -276,21 +281,21 @@ class TestDomainEndpoints:
         data = resp.json()
         assert data["status"] == "created"
 
-    @patch("api.list_domains")
+    @patch("suyven_rag.api.list_domains")
     def test_list_domains(self, mock_list, client):
         mock_list.return_value = []
         resp = client.get("/api/domains")
         assert resp.status_code == 200
         assert "domains" in resp.json()
 
-    @patch("api.get_domain")
+    @patch("suyven_rag.api.get_domain")
     def test_get_domain_not_found(self, mock_get, client):
         mock_get.side_effect = KeyError("not found")
         resp = client.get("/api/domains/nonexistent")
         assert resp.status_code == 200  # returns JSON error, not HTTP error
         assert "error" in resp.json()
 
-    @patch("api.delete_domain")
+    @patch("suyven_rag.api.delete_domain")
     def test_delete_domain(self, mock_delete, client):
         resp = client.delete("/api/domains/test")
         assert resp.status_code == 200
@@ -303,8 +308,8 @@ class TestDomainEndpoints:
 
 
 class TestIngestEndpoint:
-    @patch("api.get_index")
-    @patch("api.iter_files")
+    @patch("suyven_rag.api.get_index")
+    @patch("suyven_rag.api.iter_files")
     def test_no_files_returns_error(self, mock_iter, mock_idx, client):
         mock_iter.return_value = []
         resp = client.post("/api/ingest", json={"force": False})
@@ -318,7 +323,7 @@ class TestIngestEndpoint:
 
 
 class TestGapsEndpoint:
-    @patch("api.load_query_log")
+    @patch("suyven_rag.api.load_query_log")
     def test_no_data(self, mock_log, client):
         mock_log.return_value = []
         resp = client.get("/api/gaps")

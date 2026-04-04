@@ -96,7 +96,7 @@ class TestSecretHelper:
         secret_file = tmp_path / "TEST_KEY"
         secret_file.write_text("file-secret-value\n")
 
-        with patch("rag.config.Path") as MockPath:
+        with patch("suyven_rag.rag.config.Path") as MockPath:
             mock_secret_path = secret_file
             MockPath.return_value.__truediv__ = lambda self, name: mock_secret_path
             # Direct test: read the file

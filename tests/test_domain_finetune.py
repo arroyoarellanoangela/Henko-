@@ -149,7 +149,7 @@ class TestQuestionPairs:
 
 
 class TestGenerateDomainPairs:
-    @patch("finetune.domain_finetune._filter_with_reranker")
+    @patch("suyven_rag.finetune.domain_finetune._filter_with_reranker")
     def test_combines_strategies(self, mock_filter):
         """Test that all strategies are combined and filtered."""
         # Mock reranker to pass everything through
@@ -164,7 +164,7 @@ class TestGenerateDomainPairs:
         strategies = {p.get("strategy") for p in pairs}
         assert len(strategies) >= 1  # At least one strategy produced pairs
 
-    @patch("finetune.domain_finetune._filter_with_reranker")
+    @patch("suyven_rag.finetune.domain_finetune._filter_with_reranker")
     def test_deduplicates(self, mock_filter):
         mock_filter.side_effect = lambda pairs, **kw: pairs
         chunks = _make_chunks(50)
@@ -183,7 +183,7 @@ class TestGenerateDomainPairs:
 
 
 class TestSampleDomainChunks:
-    @patch("rag.index_registry.get_index")
+    @patch("suyven_rag.rag.index_registry.get_index")
     def test_loads_chunks(self, mock_get_index):
         mock_col = MagicMock()
         mock_col.count.return_value = 3
@@ -202,7 +202,7 @@ class TestSampleDomainChunks:
         assert chunks[0]["text"] == "chunk 1"
         mock_get_index.assert_called_with("domain_test-domain")
 
-    @patch("rag.index_registry.get_index")
+    @patch("suyven_rag.rag.index_registry.get_index")
     def test_empty_collection(self, mock_get_index):
         mock_col = MagicMock()
         mock_col.count.return_value = 0
@@ -252,7 +252,7 @@ class TestDomainFinetuneResult:
 
 
 class TestRegisterDomainModel:
-    @patch("rag.model_registry.register_embed_model")
+    @patch("suyven_rag.rag.model_registry.register_embed_model")
     def test_registers_model(self, mock_register):
         from suyven_rag.finetune.domain_finetune import DOMAIN_FT_DIR, register_domain_model
 
@@ -284,12 +284,12 @@ class TestRegisterDomainModel:
 
 
 class TestRunDomainFinetune:
-    @patch("finetune.domain_finetune.register_domain_model")
-    @patch("finetune.domain_finetune.train_domain_model")
-    @patch("finetune.domain_finetune._filter_with_reranker")
-    @patch("finetune.domain_finetune.sample_domain_chunks")
-    @patch("rag.domain_registry.get_domain")
-    @patch("rag.domain_registry.update_domain")
+    @patch("suyven_rag.finetune.domain_finetune.register_domain_model")
+    @patch("suyven_rag.finetune.domain_finetune.train_domain_model")
+    @patch("suyven_rag.finetune.domain_finetune._filter_with_reranker")
+    @patch("suyven_rag.finetune.domain_finetune.sample_domain_chunks")
+    @patch("suyven_rag.rag.domain_registry.get_domain")
+    @patch("suyven_rag.rag.domain_registry.update_domain")
     def test_success_path(
         self, mock_update, mock_get_domain, mock_sample, mock_filter, mock_train, mock_register
     ):
@@ -319,8 +319,8 @@ class TestRunDomainFinetune:
 
         shutil.rmtree(DOMAIN_FT_DIR / "test-domain", ignore_errors=True)
 
-    @patch("finetune.domain_finetune.sample_domain_chunks")
-    @patch("rag.domain_registry.get_domain")
+    @patch("suyven_rag.finetune.domain_finetune.sample_domain_chunks")
+    @patch("suyven_rag.rag.domain_registry.get_domain")
     def test_insufficient_data(self, mock_get_domain, mock_sample):
         from suyven_rag.finetune.domain_finetune import run_domain_finetune
 
@@ -334,7 +334,7 @@ class TestRunDomainFinetune:
         assert "chunks" in result.error
         assert "need at least" in result.error
 
-    @patch("rag.domain_registry.get_domain")
+    @patch("suyven_rag.rag.domain_registry.get_domain")
     def test_domain_not_found(self, mock_get_domain):
         from suyven_rag.finetune.domain_finetune import run_domain_finetune
 

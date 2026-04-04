@@ -189,7 +189,10 @@ class TestLogEval:
         record = _make_record()
         with tempfile.TemporaryDirectory() as tmpdir:
             log_file = Path(tmpdir) / "test_log.jsonl"
-            with patch("rag.eval._LOG_FILE", log_file), patch("rag.eval._LOG_DIR", Path(tmpdir)):
+            with (
+                patch("suyven_rag.rag.eval._LOG_FILE", log_file),
+                patch("suyven_rag.rag.eval._LOG_DIR", Path(tmpdir)),
+            ):
                 log_eval(record)
 
             lines = log_file.read_text(encoding="utf-8").strip().split("\n")
@@ -202,7 +205,10 @@ class TestLogEval:
     def test_appends_multiple(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             log_file = Path(tmpdir) / "test_log.jsonl"
-            with patch("rag.eval._LOG_FILE", log_file), patch("rag.eval._LOG_DIR", Path(tmpdir)):
+            with (
+                patch("suyven_rag.rag.eval._LOG_FILE", log_file),
+                patch("suyven_rag.rag.eval._LOG_DIR", Path(tmpdir)),
+            ):
                 log_eval(_make_record(query="first"))
                 log_eval(_make_record(query="second"))
 
